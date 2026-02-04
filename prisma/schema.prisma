@@ -1,0 +1,2460 @@
+// Property Legal Agent - Database Schema
+// Multi-tenant architecture with city_id column-based isolation
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// CORE: Platform Users (Epic 1 - Auth & Onboarding)
+// ============================================================
+
+model User {
+  id            String     @id @default(uuid())
+  firebaseUid   String     @unique @map("firebase_uid")
+  phone         String     @unique
+  displayName   String?    @map("display_name")
+  email         String?
+  roles         String[]   @default([])
+  primaryRole   String?    @map("primary_role")
+  cityId        String?    @map("city_id")
+  status        UserStatus @default(PENDING_ROLE)
+  isNri         Boolean    @default(false) @map("is_nri")
+  countryCode   String?    @map("country_code")
+  languagePref  String     @default("hi") @map("language_pref")
+  profileData   Json?      @map("profile_data") @db.JsonB
+  lastLoginAt   DateTime?  @map("last_login_at")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  @@index([phone])
+  @@index([status])
+  @@index([cityId])
+  @@index([roles], type: Gin)
+  @@map("users")
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING_ROLE
+  PENDING_APPROVAL
+  SUSPENDED
+  DEACTIVATED
+}
+
+// ============================================================
+// CORE: Cities & Multi-Tenant Foundation
+// ============================================================
+
+model City {
+  id           String   @id @default(uuid())
+  cityName     String   @map("city_name")
+  state        String
+  activeStatus Boolean  @default(true) @map("active_status")
+  configData   Json     @map("config_data") @db.JsonB
+  version      Int      @default(1)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdBy    String   @map("created_by")
+
+  // Relations
+  cityServiceFees          CityServiceFee[]
+  cityProcessOverrides     CityProcessOverride[]
+  cityDocumentRequirements CityDocumentRequirement[]
+  franchises               Franchise[]
+  franchiseApplications    FranchiseApplication[]
+  agents                   Agent[]
+  dealers                  Dealer[]
+  franchiseRevenues        FranchiseRevenue[]
+  trainingModules          TrainingModule[]
+  corporateAudits          CorporateAudit[]
+  exportJobs               ExportJob[]
+  lawyers                  Lawyer[]
+  legalCases               LegalCase[]
+  builders                 Builder[]
+  builderProjects          BuilderProject[]
+  serviceDefinitions       ServiceDefinition[]
+  serviceInstances         ServiceInstance[]
+  escalations              Escalation[]
+  disruptions              Disruption[]
+
+  @@unique([cityName, state])
+  @@index([activeStatus])
+  @@map("cities")
+}
+
+// ============================================================
+// STORY 14-2: City-Specific Service Fee Schedules
+// ============================================================
+
+model CityServiceFee {
+  id                  String    @id @default(uuid())
+  cityId              String    @map("city_id")
+  serviceDefinitionId String    @map("service_definition_id")
+  feeConfig           Json      @map("fee_config") @db.JsonB
+  effectiveFrom       DateTime  @map("effective_from")
+  effectiveTo         DateTime? @map("effective_to")
+  isActive            Boolean   @default(true) @map("is_active")
+  createdBy           String    @map("created_by")
+  approvedBy          String?   @map("approved_by")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  city City @relation(fields: [cityId], references: [id])
+
+  @@unique([cityId, serviceDefinitionId, effectiveFrom])
+  @@index([cityId, serviceDefinitionId, isActive])
+  @@index([effectiveFrom])
+  @@map("city_service_fees")
+}
+
+// ============================================================
+// STORY 14-3: City-Specific Government Process Configuration
+// ============================================================
+
+model CityProcessOverride {
+  id                  String   @id @default(uuid())
+  cityId              String   @map("city_id")
+  serviceDefinitionId String   @map("service_definition_id")
+  customSteps         Json     @map("custom_steps") @db.JsonB
+  conditionalRules    Json?    @map("conditional_rules") @db.JsonB
+  approvalStatus      String   @default("pending_approval") @map("approval_status")
+  approvedBy          String?  @map("approved_by")
+  approvedAt          DateTime? @map("approved_at")
+  isActive            Boolean  @default(false) @map("is_active")
+  version             Int      @default(1)
+  createdBy           String   @map("created_by")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  city City @relation(fields: [cityId], references: [id])
+
+  @@unique([cityId, serviceDefinitionId, version])
+  @@index([cityId, serviceDefinitionId, isActive])
+  @@index([approvalStatus])
+  @@map("city_process_overrides")
+}
+
+// ============================================================
+// STORY 14-4: City-Specific Document Requirements
+// ============================================================
+
+model CityDocumentRequirement {
+  id                  String   @id @default(uuid())
+  cityId              String   @map("city_id")
+  serviceDefinitionId String   @map("service_definition_id")
+  documents           Json     @map("documents") @db.JsonB
+  isActive            Boolean  @default(true) @map("is_active")
+  version             Int      @default(1)
+  createdBy           String   @map("created_by")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  city City @relation(fields: [cityId], references: [id])
+
+  @@unique([cityId, serviceDefinitionId])
+  @@index([cityId, isActive])
+  @@map("city_document_requirements")
+}
+
+// ============================================================
+// STORY 14-5: Franchise Application & Vetting Workflow
+// ============================================================
+
+model FranchiseApplication {
+  id                String    @id @default(uuid())
+  applicantName     String    @map("applicant_name")
+  applicantEmail    String    @map("applicant_email")
+  applicantPhone    String    @map("applicant_phone")
+  cityId            String    @map("city_id")
+  businessExperience String   @map("business_experience")
+  financialCapacity  String   @map("financial_capacity")
+  references        Json      @map("references") @db.JsonB
+  businessPlanUrl   String?   @map("business_plan_url")
+  status            String    @default("pending_review")
+  reviewChecklist   Json?     @map("review_checklist") @db.JsonB
+  reviewNotes       String?   @map("review_notes")
+  reviewedBy        String?   @map("reviewed_by")
+  reviewedAt        DateTime? @map("reviewed_at")
+  agreementDocUrl   String?   @map("agreement_doc_url")
+  signedAgreementUrl String?  @map("signed_agreement_url")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  city City @relation(fields: [cityId], references: [id])
+
+  @@index([status])
+  @@index([cityId])
+  @@map("franchise_applications")
+}
+
+// ============================================================
+// STORY 14-5/14-6/14-7/14-8: Franchise Entity
+// ============================================================
+
+model Franchise {
+  id              String   @id @default(uuid())
+  cityId          String   @map("city_id")
+  ownerUserId     String   @map("owner_user_id")
+  ownerName       String   @map("owner_name")
+  ownerEmail      String   @map("owner_email")
+  ownerPhone      String   @map("owner_phone")
+  contractTerms   Json     @map("contract_terms") @db.JsonB
+  isActive        Boolean  @default(true) @map("is_active")
+  onboardedAt     DateTime @default(now()) @map("onboarded_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  city             City               @relation(fields: [cityId], references: [id])
+  franchiseRevenues FranchiseRevenue[]
+  corporateAudits  CorporateAudit[]
+
+  @@unique([cityId])
+  @@unique([ownerUserId])
+  @@index([isActive])
+  @@map("franchises")
+}
+
+// ============================================================
+// STORY 14-6: Agents (city-scoped)
+// ============================================================
+
+model Agent {
+  id                String   @id @default(uuid())
+  userId            String   @map("user_id")
+  cityId            String   @map("city_id")
+  name              String
+  phone             String
+  photoUrl          String?  @map("photo_url")
+  serviceAreas      Json?    @map("service_areas") @db.JsonB
+  expertiseTags     String[] @map("expertise_tags")
+  maxConcurrentTasks Int     @default(10) @map("max_concurrent_tasks")
+  isActive          Boolean  @default(true) @map("is_active")
+  trainingCompleted Boolean  @default(false) @map("training_completed")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  city City @relation(fields: [cityId], references: [id])
+
+  @@unique([userId])
+  @@index([cityId, isActive])
+  @@index([cityId])
+  @@map("agents")
+}
+
+// ============================================================
+// EPIC 9: Dealer Network, Commissions & Gamification
+// ============================================================
+
+model Dealer {
+  id                  String       @id @default(uuid())
+  userId              String       @unique @map("user_id")
+  dealerCode          String?      @unique @map("dealer_code")
+  businessName        String?      @map("business_name")
+  dealerStatus        DealerStatus @default(PENDING_KYC) @map("dealer_status")
+  currentTier         DealerTier   @default(BRONZE) @map("current_tier")
+  tierStartDate       DateTime?    @map("tier_start_date")
+  previousTier        DealerTier?  @map("previous_tier")
+  qrCodeUrl           String?      @map("qr_code_url")
+  whitelabelEnabled   Boolean      @default(false) @map("whitelabel_enabled")
+  logoUrl             String?      @map("logo_url")
+  brandColor          String?      @map("brand_color")
+  displayNameOptIn    Boolean      @default(false) @map("display_name_opt_in")
+  cityId              String       @map("city_id")
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+
+  city                 City                        @relation(fields: [cityId], references: [id])
+  kyc                  DealerKyc?
+  referrals            DealerReferral[]
+  commissions          DealerCommission[]
+  bankAccounts         DealerBankAccount[]
+  badges               DealerBadge[]
+  payouts              DealerPayout[]
+  tierHistory          DealerTierHistory[]
+  leaderboardSnapshots DealerLeaderboardSnapshot[]
+  linkClicks           DealerLinkClick[]
+
+  @@index([cityId])
+  @@index([dealerStatus])
+  @@index([currentTier])
+  @@map("dealers")
+}
+
+enum DealerStatus {
+  PENDING_KYC
+  PENDING_APPROVAL
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum DealerTier {
+  BRONZE
+  SILVER
+  GOLD
+}
+
+// Story 9.1: Dealer KYC
+model DealerKyc {
+  id                String    @id @default(uuid())
+  dealerId          String    @unique @map("dealer_id")
+  fullName          String    @map("full_name")
+  panNumber         String    @map("pan_number")
+  panPhotoUrl       String    @map("pan_photo_url")
+  aadhaarMasked     String    @map("aadhaar_masked")
+  aadhaarPhotoUrl   String?   @map("aadhaar_photo_url")
+  businessAddress   String?   @map("business_address")
+  ifscCode          String    @map("ifsc_code")
+  accountNumber     String    @map("account_number")
+  accountHolderName String    @map("account_holder_name")
+  status            KycStatus @default(PENDING) @map("status")
+  rejectionReason   String?   @map("rejection_reason")
+  rejectionNotes    String?   @map("rejection_notes")
+  reviewedBy        String?   @map("reviewed_by")
+  reviewedAt        DateTime? @map("reviewed_at")
+  submittedAt       DateTime  @default(now()) @map("submitted_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  dealer Dealer @relation(fields: [dealerId], references: [id])
+
+  @@index([status])
+  @@map("dealer_kyc")
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Story 9.4: Deep Link Click Tracking
+model DealerLinkClick {
+  id         String   @id @default(uuid())
+  dealerCode String   @map("dealer_code")
+  userAgent  String   @map("user_agent")
+  ipAddress  String?  @map("ip_address")
+  clickedAt  DateTime @default(now()) @map("clicked_at")
+
+  dealer Dealer? @relation(fields: [dealerCode], references: [dealerCode])
+
+  @@index([dealerCode])
+  @@index([clickedAt])
+  @@map("dealer_link_clicks")
+}
+
+// Story 9.5: Customer Attribution / Referrals
+model DealerReferral {
+  id                String            @id @default(uuid())
+  dealerId          String            @map("dealer_id")
+  customerId        String            @map("customer_id")
+  referralDate      DateTime          @default(now()) @map("referral_date")
+  referralSource    ReferralSource    @map("referral_source")
+  attributionStatus AttributionStatus @default(PENDING) @map("attribution_status")
+  confirmedAt       DateTime?         @map("confirmed_at")
+  cityId            String            @map("city_id")
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  dealer      Dealer             @relation(fields: [dealerId], references: [id])
+  commissions DealerCommission[]
+
+  @@unique([dealerId, customerId])
+  @@index([dealerId])
+  @@index([customerId])
+  @@index([cityId])
+  @@map("dealer_referrals")
+}
+
+enum ReferralSource {
+  LINK
+  QR
+}
+
+enum AttributionStatus {
+  PENDING
+  CONFIRMED
+}
+
+// Story 9.7: Commission Records
+model DealerCommission {
+  id                    String           @id @default(uuid())
+  dealerId              String           @map("dealer_id")
+  referralId            String           @map("referral_id")
+  serviceRequestId      String           @map("service_request_id")
+  serviceFeePaise       BigInt           @map("service_fee_paise")
+  commissionRate        Int              @map("commission_rate") // basis points x100: 500 = 5.00%
+  commissionAmountPaise BigInt           @map("commission_amount_paise")
+  status                CommissionStatus @default(PENDING) @map("status")
+  earnedDate            DateTime         @default(now()) @map("earned_date")
+  approvedAt            DateTime?        @map("approved_at")
+  paidAt                DateTime?        @map("paid_at")
+  payoutId              String?          @map("payout_id")
+  cityId                String           @map("city_id")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+
+  dealer   Dealer          @relation(fields: [dealerId], references: [id])
+  referral DealerReferral  @relation(fields: [referralId], references: [id])
+  payout   DealerPayout?   @relation(fields: [payoutId], references: [id])
+
+  @@unique([dealerId, serviceRequestId])
+  @@index([dealerId, status])
+  @@index([status])
+  @@index([cityId])
+  @@map("dealer_commissions")
+}
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+}
+
+// Story 9.8: Tier History
+model DealerTierHistory {
+  id            String     @id @default(uuid())
+  dealerId      String     @map("dealer_id")
+  previousTier  DealerTier @map("previous_tier")
+  newTier       DealerTier @map("new_tier")
+  referralCount Int        @map("referral_count")
+  periodMonth   Int        @map("period_month")
+  periodYear    Int        @map("period_year")
+  changedAt     DateTime   @default(now()) @map("changed_at")
+
+  dealer Dealer @relation(fields: [dealerId], references: [id])
+
+  @@index([dealerId])
+  @@map("dealer_tier_history")
+}
+
+// Story 9.10: Leaderboard Snapshots
+model DealerLeaderboardSnapshot {
+  id                   String   @id @default(uuid())
+  dealerId             String   @map("dealer_id")
+  cityId               String   @map("city_id")
+  rank                 Int
+  referralCount        Int      @map("referral_count")
+  totalCommissionPaise BigInt   @map("total_commission_paise")
+  period               String
+  snapshotDate         DateTime @default(now()) @map("snapshot_date")
+
+  dealer Dealer @relation(fields: [dealerId], references: [id])
+
+  @@unique([dealerId, period, snapshotDate])
+  @@index([cityId, period, snapshotDate])
+  @@map("dealer_leaderboard_snapshots")
+}
+
+// Story 9.11: Gamification Badges
+model DealerBadge {
+  id         String    @id @default(uuid())
+  dealerId   String    @map("dealer_id")
+  badgeType  BadgeType @map("badge_type")
+  earnedDate DateTime  @default(now()) @map("earned_date")
+
+  dealer Dealer @relation(fields: [dealerId], references: [id])
+
+  @@unique([dealerId, badgeType])
+  @@index([dealerId])
+  @@map("dealer_badges")
+}
+
+enum BadgeType {
+  FIRST_REFERRAL
+  FIVE_REFERRALS
+  FIRST_PAYOUT
+  SILVER_TIER
+  GOLD_TIER
+  TOP_10_LEADERBOARD
+  HUNDRED_REFERRALS_LIFETIME
+}
+
+// Story 9.13: Bank Account Management
+model DealerBankAccount {
+  id                     String      @id @default(uuid())
+  dealerId               String      @map("dealer_id")
+  accountHolderName      String      @map("account_holder_name")
+  bankName               String      @map("bank_name")
+  ifscCode               String      @map("ifsc_code")
+  accountNumberMasked    String      @map("account_number_masked")
+  accountNumberEncrypted String      @map("account_number_encrypted")
+  accountType            AccountType @map("account_type")
+  verified               Boolean     @default(false)
+  verificationCode       String?     @map("verification_code")
+  isPrimary              Boolean     @default(false) @map("is_primary")
+  createdAt              DateTime    @default(now()) @map("created_at")
+  updatedAt              DateTime    @updatedAt @map("updated_at")
+
+  dealer  Dealer         @relation(fields: [dealerId], references: [id])
+  payouts DealerPayout[]
+
+  @@index([dealerId])
+  @@map("dealer_bank_accounts")
+}
+
+enum AccountType {
+  SAVINGS
+  CURRENT
+}
+
+// Story 9.14: Dealer Payouts
+model DealerPayout {
+  id               String             @id @default(uuid())
+  dealerId         String             @map("dealer_id")
+  bankAccountId    String             @map("bank_account_id")
+  payoutDate       DateTime           @default(now()) @map("payout_date")
+  totalAmountPaise BigInt             @map("total_amount_paise")
+  transactionId    String?            @map("transaction_id")
+  status           DealerPayoutStatus @default(PENDING) @map("status")
+  failureReason    String?            @map("failure_reason")
+  processedAt      DateTime?          @map("processed_at")
+  cityId           String             @map("city_id")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  dealer      Dealer            @relation(fields: [dealerId], references: [id])
+  bankAccount DealerBankAccount @relation(fields: [bankAccountId], references: [id])
+  commissions DealerCommission[]
+
+  @@index([dealerId])
+  @@index([status])
+  @@index([cityId])
+  @@map("dealer_payouts")
+}
+
+enum DealerPayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// ============================================================
+// STORY 14-8: Franchise Revenue Share
+// ============================================================
+
+model FranchiseRevenue {
+  id               String   @id @default(uuid())
+  franchiseId      String   @map("franchise_id")
+  cityId           String   @map("city_id")
+  serviceRequestId String   @map("service_request_id")
+  serviceFeePaise  Int      @map("service_fee_paise")
+  franchiseSharePaise Int   @map("franchise_share_paise")
+  platformSharePaise  Int   @map("platform_share_paise")
+  franchiseShareBps   Int   @map("franchise_share_bps") // basis points: 2500 = 25.00%
+  month            String   // Format: "2026-01"
+  status           String   @default("pending") // pending, approved, paid
+  adjustments      Json?    @map("adjustments") @db.JsonB
+  paidAt           DateTime? @map("paid_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  franchise Franchise @relation(fields: [franchiseId], references: [id])
+  city      City      @relation(fields: [cityId], references: [id])
+
+  @@index([franchiseId, month])
+  @@index([cityId, month])
+  @@index([status])
+  @@map("franchise_revenues")
+}
+
+// ============================================================
+// STORY 14-15: Training Modules
+// ============================================================
+
+model TrainingModule {
+  id           String   @id @default(uuid())
+  cityId       String?  @map("city_id") // null = platform-wide
+  moduleName   String   @map("module_name")
+  description  String?
+  contentType  String   @map("content_type") // video, pdf, quiz
+  contentUrl   String?  @map("content_url")
+  quizData     Json?    @map("quiz_data") @db.JsonB
+  learningPath String?  @map("learning_path")
+  isMandatory  Boolean  @default(false) @map("is_mandatory")
+  sortOrder    Int      @default(0) @map("sort_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdBy    String   @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  city              City?              @relation(fields: [cityId], references: [id])
+  trainingProgress  TrainingProgress[]
+
+  @@index([cityId, isActive])
+  @@index([learningPath])
+  @@map("training_modules")
+}
+
+model TrainingProgress {
+  id               String    @id @default(uuid())
+  agentId          String    @map("agent_id")
+  trainingModuleId String    @map("training_module_id")
+  status           String    @default("not_started") // not_started, in_progress, completed
+  quizScore        Int?      @map("quiz_score")
+  completedAt      DateTime? @map("completed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  trainingModule TrainingModule @relation(fields: [trainingModuleId], references: [id])
+
+  @@unique([agentId, trainingModuleId])
+  @@index([agentId])
+  @@map("training_progress")
+}
+
+// ============================================================
+// STORY 14-16: Corporate Audit Workflow
+// ============================================================
+
+model CorporateAudit {
+  id              String    @id @default(uuid())
+  franchiseId     String    @map("franchise_id")
+  cityId          String    @map("city_id")
+  auditType       String    @map("audit_type") // financial, operational, quality
+  scheduledDate   DateTime  @map("scheduled_date")
+  auditorName     String    @map("auditor_name")
+  status          String    @default("scheduled") // scheduled, in_progress, findings_shared, corrective_actions, closed
+  checklist       Json?     @map("checklist") @db.JsonB
+  findings        Json?     @map("findings") @db.JsonB
+  findingsReportUrl String? @map("findings_report_url")
+  correctiveActions Json?   @map("corrective_actions") @db.JsonB
+  franchiseResponse String? @map("franchise_response")
+  isRecurring     Boolean   @default(false) @map("is_recurring")
+  recurringSchedule String? @map("recurring_schedule") // quarterly, annual
+  closedAt        DateTime? @map("closed_at")
+  createdBy       String    @map("created_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  franchise Franchise @relation(fields: [franchiseId], references: [id])
+  city      City      @relation(fields: [cityId], references: [id])
+
+  @@index([franchiseId])
+  @@index([cityId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@map("corporate_audits")
+}
+
+// ============================================================
+// STORY 14-13: Export Jobs
+// ============================================================
+
+model ExportJob {
+  id          String    @id @default(uuid())
+  cityId      String?   @map("city_id")
+  userId      String    @map("user_id")
+  userRole    String    @map("user_role")
+  exportType  String    @map("export_type") // revenue, agent_performance, dealer_commissions, service_list, sla_report
+  format      String    // pdf, csv, xlsx
+  filters     Json?     @map("filters") @db.JsonB
+  status      String    @default("pending") // pending, processing, completed, failed
+  fileUrl     String?   @map("file_url")
+  expiresAt   DateTime? @map("expires_at")
+  rowCount    Int?      @map("row_count")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  city City? @relation(fields: [cityId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@map("export_jobs")
+}
+
+// ============================================================
+// STORY 14-12: Feature Usage Tracking (stored in BigQuery primarily)
+// ============================================================
+
+model FeatureUsageEvent {
+  id        String   @id @default(uuid())
+  eventName String   @map("event_name")
+  userId    String?  @map("user_id")
+  userRole  String?  @map("user_role")
+  cityId    String?  @map("city_id")
+  metadata  Json?    @map("metadata") @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([eventName, createdAt])
+  @@index([cityId, createdAt])
+  @@map("feature_usage_events")
+}
+
+// ============================================================
+// STORY 14-14: BigQuery Sync Tracking
+// ============================================================
+
+model BigQuerySyncLog {
+  id          String   @id @default(uuid())
+  tableName   String   @map("table_name")
+  recordCount Int      @map("record_count")
+  status      String   // success, failed
+  errorMessage String? @map("error_message")
+  syncedAt    DateTime @default(now()) @map("synced_at")
+  durationMs  Int      @map("duration_ms")
+
+  @@index([tableName, syncedAt])
+  @@map("bigquery_sync_logs")
+}
+
+// ============================================================
+// EPIC 13: NRI Services, POA & Court Tracking
+// ============================================================
+
+// STORY 13-1: International Payment Fields (extend Payment model)
+// NOTE: These fields extend the Payment model from Epic 4.
+// If Payment model does not yet exist, this creates it.
+model Payment {
+  id                     String    @id @default(uuid())
+  serviceRequestId       String    @map("service_request_id")
+  customerId             String    @map("customer_id")
+  amountPaise            Int       @map("amount_paise")
+  status                 String    @default("pending") // pending, pending_wire_transfer, paid, failed, refunded
+  razorpayOrderId        String?   @map("razorpay_order_id")
+  razorpayPaymentId      String?   @map("razorpay_payment_id")
+  paymentMethodType      String    @map("payment_method_type") @default("domestic") // domestic, international_upi, wire_transfer
+  isNriPayment           Boolean   @map("is_nri_payment") @default(false)
+  foreignCurrencyAmount  Int?      @map("foreign_currency_amount") // in smallest unit of foreign currency
+  foreignCurrencyCode    String?   @map("foreign_currency_code") // USD, GBP, AED, SGD, etc.
+  exchangeRate           Decimal?  @map("exchange_rate") @db.Decimal(12, 6)
+  paidAt                 DateTime? @map("paid_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  wireTransfer WireTransfer?
+
+  @@index([serviceRequestId])
+  @@index([customerId])
+  @@index([status])
+  @@index([razorpayOrderId])
+  @@map("payments")
+}
+
+// STORY 13-2: Wire Transfer Tracking
+model WireTransfer {
+  id                 String    @id @default(uuid())
+  paymentId          String    @unique @map("payment_id")
+  serviceRequestId   String    @map("service_request_id")
+  customerId         String    @map("customer_id")
+  referenceCode      String    @unique @map("reference_code")
+  amountPaise        Int       @map("amount_paise")
+  foreignCurrencyCode String?  @map("foreign_currency_code")
+  foreignAmount      Int?      @map("foreign_amount")
+  bankName           String    @map("bank_name") @default("HDFC Bank")
+  swiftCode          String    @map("swift_code") @default("HDFCINBB")
+  accountNumber      String    @map("account_number")
+  status             String    @default("pending") // pending, received, reconciled, expired
+  receivedAmount     Int?      @map("received_amount") // actual amount received in paise
+  varianceAmount     Int?      @map("variance_amount") // difference from expected
+  bankStatementUrl   String?   @map("bank_statement_url")
+  reconciledByUserId String?   @map("reconciled_by_user_id")
+  reconciledAt       DateTime? @map("reconciled_at")
+  slaDeadline        DateTime  @map("sla_deadline")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@index([referenceCode])
+  @@index([status])
+  @@index([customerId])
+  @@index([slaDeadline])
+  @@map("wire_transfers")
+}
+
+// STORY 13-3: Exchange Rate Snapshots
+model ExchangeRateSnapshot {
+  id        String   @id @default(uuid())
+  rates     Json     @db.JsonB // JSON object of currency rates relative to INR
+  fetchedAt DateTime @map("fetched_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([fetchedAt])
+  @@map("exchange_rate_snapshots")
+}
+
+// STORY 13-4: Payment Audit Logs
+model PaymentAuditLog {
+  id             String   @id @default(uuid())
+  paymentId      String   @map("payment_id")
+  wireTransferId String?  @map("wire_transfer_id")
+  action         String   // reconciled, variance_flagged, reminder_sent, adjustment_made
+  performedBy    String   @map("performed_by") // ops user ID
+  details        String   @db.Text // JSON with action details
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([paymentId])
+  @@index([wireTransferId])
+  @@index([performedBy])
+  @@map("payment_audit_logs")
+}
+
+// STORY 13-5: POA Documents
+model PoaDocument {
+  id                    String    @id @default(uuid())
+  customerId            String    @map("customer_id")
+  serviceRequestId      String?   @map("service_request_id")
+  attorneyName          String    @map("attorney_name")
+  attorneyAddress       String    @map("attorney_address")
+  attorneyPhone         String    @map("attorney_phone")
+  scopeOfAuthority      String    @map("scope_of_authority") // JSON array of service scopes
+  serviceType           String    @map("service_type") // mutation, registry, tax_payment, general
+  validityStartDate     DateTime  @map("validity_start_date")
+  validityEndDate       DateTime  @map("validity_end_date")
+  templateVersion       String    @map("template_version") @default("1.0")
+  documentUrl           String?   @map("document_url") // Firebase Storage URL for generated POA
+  status                String    @default("draft") // draft, generated, appointment_booked, documents_submitted, notarization_pending, poa_received, uploaded, verified, rejected, expired
+  // STORY 13-7: Verification fields
+  notarizedPoaUrl       String?   @map("notarized_poa_url")
+  verificationStatus    String    @map("verification_status") @default("pending") // pending, approved, rejected
+  verificationNotes     String?   @map("verification_notes") @db.Text
+  rejectionReason       String?   @map("rejection_reason")
+  embassySeal           Boolean?  @map("embassy_seal")
+  notarizationDateValid Boolean?  @map("notarization_date_valid")
+  attorneyDetailsMatch  Boolean?  @map("attorney_details_match")
+  scopeAdequate         Boolean?  @map("scope_adequate")
+  validityConfirmed     Boolean?  @map("validity_confirmed")
+  notarizedAt           DateTime? @map("notarized_at")
+  verifiedAt            DateTime? @map("verified_at")
+  verifiedByUserId      String?   @map("verified_by_user_id")
+  cityId                String    @map("city_id")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  executionSteps PoaExecutionStep[]
+
+  @@index([customerId])
+  @@index([serviceRequestId])
+  @@index([status])
+  @@index([validityEndDate])
+  @@map("poa_documents")
+}
+
+// STORY 13-6: POA Execution Steps (Embassy/Consulate Tracking)
+model PoaExecutionStep {
+  id              String    @id @default(uuid())
+  poaDocumentId   String    @map("poa_document_id")
+  status          String    // appointment_booked, documents_submitted, notarization_pending, poa_received, uploaded
+  notes           String?   @db.Text
+  embassyName     String?   @map("embassy_name")
+  embassyCity     String?   @map("embassy_city")
+  embassyCountry  String?   @map("embassy_country")
+  appointmentDate DateTime? @map("appointment_date")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  poaDocument PoaDocument @relation(fields: [poaDocumentId], references: [id])
+
+  @@index([poaDocumentId])
+  @@map("poa_execution_steps")
+}
+
+// STORY 13-9: Court Hearing Date Tracking
+model CourtHearing {
+  id                String    @id @default(uuid())
+  serviceRequestId  String    @map("service_request_id")
+  caseNumber        String    @map("case_number")
+  hearingDate       DateTime  @map("hearing_date")
+  courtName         String    @map("court_name")
+  courtAddress      String?   @map("court_address")
+  hearingType       String    @map("hearing_type") // preliminary, regular, final, adjournment
+  status            String    @default("scheduled") // scheduled, completed, adjourned, cancelled
+  outcome           String?   // brief outcome summary
+  notes             String?   @db.Text
+  nextHearingDate   DateTime? @map("next_hearing_date")
+  adjournmentReason String?   @map("adjournment_reason")
+  createdByUserId   String    @map("created_by_user_id")
+  cityId            String    @map("city_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  courtOrders CourtOrder[]
+
+  @@index([serviceRequestId])
+  @@index([hearingDate])
+  @@index([caseNumber])
+  @@index([cityId])
+  @@map("court_hearings")
+}
+
+// STORY 13-11: Court Order Upload & Delivery
+model CourtOrder {
+  id                String    @id @default(uuid())
+  serviceRequestId  String    @map("service_request_id")
+  hearingId         String?   @map("hearing_id")
+  caseNumber        String    @map("case_number")
+  orderDate         DateTime  @map("order_date")
+  orderType         String    @map("order_type") // interim, final, dismissal, appeal_allowed
+  outcome           String    // favorable, adverse, partial
+  documentUrl       String    @map("document_url")
+  summary           String?   @db.Text
+  uploadedByUserId  String    @map("uploaded_by_user_id")
+  customerNotified  Boolean   @map("customer_notified") @default(false)
+  customerDecision  String?   @map("customer_decision") // appeal, close_case, proceed
+  cityId            String    @map("city_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  hearing CourtHearing? @relation(fields: [hearingId], references: [id])
+
+  @@index([serviceRequestId])
+  @@index([caseNumber])
+  @@map("court_orders")
+}
+
+// STORY 13-12: Court Case Progress Notifications
+model CourtEvent {
+  id                String   @id @default(uuid())
+  serviceRequestId  String   @map("service_request_id")
+  caseNumber        String   @map("case_number")
+  eventType         String   @map("event_type") // hearing_scheduled, hearing_completed, adjourned, order_issued, documents_submitted, case_filed, custom
+  eventDate         DateTime @map("event_date")
+  description       String
+  nextAction        String?  @map("next_action")
+  isMilestone       Boolean  @map("is_milestone") @default(false)
+  notificationSent  Boolean  @map("notification_sent") @default(false)
+  createdByUserId   String   @map("created_by_user_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([serviceRequestId])
+  @@index([eventDate])
+  @@map("court_events")
+}
+
+// STORY 13-13: Video Consultation Booking
+model Consultation {
+  id                  String    @id @default(uuid())
+  serviceRequestId    String?   @map("service_request_id")
+  customerId          String    @map("customer_id")
+  consultantId        String    @map("consultant_id") // agent or lawyer user ID
+  consultantType      String    @map("consultant_type") // agent, lawyer
+  scheduledAtUtc      DateTime  @map("scheduled_at_utc")
+  durationMinutes     Int       @map("duration_minutes") @default(30)
+  customerTimezone    String    @map("customer_timezone") // IANA timezone e.g., Asia/Dubai
+  consultantTimezone  String    @map("consultant_timezone") @default("Asia/Kolkata")
+  status              String    @default("scheduled") // scheduled, in_progress, completed, missed, cancelled, rescheduled
+  videoCallUrl        String?   @map("video_call_url")
+  fallbackPhone       String?   @map("fallback_phone")
+  rescheduledFromId   String?   @map("rescheduled_from_id")
+  rescheduleCount     Int       @map("reschedule_count") @default(0)
+  missedByUserId      String?   @map("missed_by_user_id")
+  noShowCount         Int       @map("no_show_count") @default(0)
+  notes               String?   @db.Text
+  cityId              String    @map("city_id")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@index([consultantId])
+  @@index([scheduledAtUtc])
+  @@index([status])
+  @@map("consultations")
+}
+
+model ConsultantAvailability {
+  id             String  @id @default(uuid())
+  consultantId   String  @map("consultant_id")
+  dayOfWeek      Int     @map("day_of_week") // 0=Sunday, 6=Saturday
+  startTimeUtc   String  @map("start_time_utc") // HH:mm format in UTC
+  endTimeUtc     String  @map("end_time_utc")
+  isActive       Boolean @map("is_active") @default(true)
+
+  @@index([consultantId])
+  @@map("consultant_availability")
+}
+
+// STORY 13-15: NRI Document Coordination Workflow
+model NriDocumentSubmission {
+  id                    String    @id @default(uuid())
+  serviceRequestId      String    @map("service_request_id")
+  customerId            String    @map("customer_id")
+  documentType          String    @map("document_type") // e.g., sale_deed, identity_proof, poa
+  scannedCopyUrl        String?   @map("scanned_copy_url")
+  scannedCopyStatus     String    @map("scanned_copy_status") @default("pending") // pending, approved, rejected
+  scannedCopyNotes      String?   @map("scanned_copy_notes")
+  originalRequired      Boolean   @map("original_required") @default(true)
+  courierService        String?   @map("courier_service") // DHL, FedEx, etc.
+  courierTrackingNumber String?   @map("courier_tracking_number")
+  courierStatus         String?   @map("courier_status") // shipped, in_transit, delivered, received_by_agent
+  courierShippedDate    DateTime? @map("courier_shipped_date")
+  courierDeliveryDate   DateTime? @map("courier_delivery_date")
+  originalReceivedDate  DateTime? @map("original_received_date")
+  originalMatchesScan   Boolean?  @map("original_matches_scan")
+  mismatchNotes         String?   @map("mismatch_notes")
+  submittedViaAttorney  Boolean   @map("submitted_via_attorney") @default(false)
+  provisionalApproval   Boolean   @map("provisional_approval") @default(false)
+  provisionalDeadline   DateTime? @map("provisional_deadline")
+  verifiedByAgentId     String?   @map("verified_by_agent_id")
+  cityId                String    @map("city_id")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@index([serviceRequestId])
+  @@index([customerId])
+  @@index([courierTrackingNumber])
+  @@map("nri_document_submissions")
+}
+
+// ============================================================
+// EPIC 12: Legal Opinion Marketplace
+// ============================================================
+
+// STORY 12-1: Lawyer Registration & Bar Council Verification
+model Lawyer {
+  id                    String          @id @default(uuid())
+  userId                String          @unique @map("user_id")
+  barCouncilNumber      String          @map("bar_council_number")
+  stateBarCouncil       String          @map("state_bar_council")
+  admissionYear         Int             @map("admission_year")
+  practicingCertUrl     String          @map("practicing_cert_url")
+  barCouncilIdUrl       String?         @map("bar_council_id_url")
+  lawyerStatus          LawyerStatus    @default(PENDING_VERIFICATION) @map("lawyer_status")
+  lawyerTier            LawyerTier      @default(STANDARD) @map("lawyer_tier")
+  commissionRate        Int             @default(20) @map("commission_rate") // platform commission percentage
+  dndEnabled            Boolean         @default(false) @map("dnd_enabled")
+  declineCount          Int             @default(0) @map("decline_count")
+  totalCasesCompleted   Int             @default(0) @map("total_cases_completed")
+  avgRating             Decimal?        @map("avg_rating") @db.Decimal(3, 2)
+  rejectionReason       String?         @map("rejection_reason")
+  verifiedBy            String?         @map("verified_by")
+  verifiedAt            DateTime?       @map("verified_at")
+  cityId                String          @map("city_id")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+
+  city                  City            @relation(fields: [cityId], references: [id])
+  expertise             LawyerExpertise[]
+  legalCases            LegalCase[]
+  payouts               LawyerPayout[]
+  bankAccounts          LawyerBankAccount[]
+  ratings               LegalOpinionRating[]
+
+  @@index([cityId])
+  @@index([lawyerStatus])
+  @@index([stateBarCouncil])
+  @@map("lawyers")
+}
+
+enum LawyerStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  SUSPENDED
+  REJECTED
+}
+
+enum LawyerTier {
+  STANDARD
+  PREFERRED
+}
+
+// STORY 12-2: Lawyer Expertise Tagging
+model LawyerExpertise {
+  id            String        @id @default(uuid())
+  lawyerId      String        @map("lawyer_id")
+  expertiseTag  ExpertiseTag  @map("expertise_tag")
+  assignedBy    String        @map("assigned_by")
+  assignedAt    DateTime      @default(now()) @map("assigned_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  lawyer        Lawyer        @relation(fields: [lawyerId], references: [id])
+
+  @@unique([lawyerId, expertiseTag])
+  @@index([expertiseTag])
+  @@map("lawyer_expertise")
+}
+
+model LawyerExpertiseRequest {
+  id                String                  @id @default(uuid())
+  lawyerId          String                  @map("lawyer_id")
+  requestedTag      ExpertiseTag            @map("requested_tag")
+  supportingDocUrl  String?                 @map("supporting_doc_url")
+  status            ExpertiseRequestStatus  @default(PENDING) @map("status")
+  reviewedBy        String?                 @map("reviewed_by")
+  reviewedAt        DateTime?               @map("reviewed_at")
+  rejectionReason   String?                 @map("rejection_reason")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+
+  @@index([lawyerId])
+  @@index([status])
+  @@map("lawyer_expertise_requests")
+}
+
+enum ExpertiseTag {
+  LDA_DISPUTES
+  TITLE_OPINIONS
+  RERA_MATTERS
+  SUCCESSION_LEGAL_HEIR
+  AGRICULTURAL_LAND_CONVERSION
+  ENCUMBRANCE_ISSUES
+  MUTATION_CHALLENGES
+  PROPERTY_TAX_DISPUTES
+}
+
+enum ExpertiseRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// STORY 12-3: Legal Cases (Case Routing)
+model LegalCase {
+  id                  String            @id @default(uuid())
+  caseNumber          String            @unique @map("case_number")
+  serviceRequestId    String            @map("service_request_id")
+  lawyerId            String            @map("lawyer_id")
+  requiredExpertise   ExpertiseTag      @map("required_expertise")
+  casePriority        CasePriority      @default(NORMAL) @map("case_priority")
+  caseStatus          LegalCaseStatus   @default(ASSIGNED) @map("case_status")
+  issueSummary        String?           @map("issue_summary")
+  caseFeeInPaise      Int               @map("case_fee_in_paise")
+  platformCommission  Int               @map("platform_commission") // percentage
+  deadlineAt          DateTime          @map("deadline_at")
+  assignedBy          String            @map("assigned_by")
+  assignedAt          DateTime          @default(now()) @map("assigned_at")
+  acceptedAt          DateTime?         @map("accepted_at")
+  declinedAt          DateTime?         @map("declined_at")
+  declineReason       String?           @map("decline_reason")
+  completedAt         DateTime?         @map("completed_at")
+  cityId              String            @map("city_id")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  lawyer              Lawyer            @relation(fields: [lawyerId], references: [id])
+  city                City              @relation(fields: [cityId], references: [id])
+  opinion             LegalOpinion?
+  rating              LegalOpinionRating?
+  documentAccesses    LegalCaseDocAccess[]
+  payouts             LawyerPayout[]
+  docRequests         LegalCaseDocRequest[]
+
+  @@index([lawyerId, caseStatus])
+  @@index([serviceRequestId])
+  @@index([cityId])
+  @@index([deadlineAt])
+  @@map("legal_cases")
+}
+
+enum LegalCaseStatus {
+  ASSIGNED
+  PENDING_ACCEPTANCE
+  IN_PROGRESS
+  OPINION_SUBMITTED
+  OPINION_APPROVED
+  OPINION_DELIVERED
+  COMPLETED
+  REASSIGNED
+}
+
+enum CasePriority {
+  NORMAL
+  URGENT
+}
+
+// STORY 12-5: Lawyer Document Access (Scoped)
+model LegalCaseDocAccess {
+  id            String    @id @default(uuid())
+  legalCaseId   String    @map("legal_case_id")
+  lawyerId      String    @map("lawyer_id")
+  documentId    String    @map("document_id")
+  accessedAt    DateTime  @default(now()) @map("accessed_at")
+  accessType    String    @default("view") @map("access_type") // view, download
+
+  legalCase     LegalCase @relation(fields: [legalCaseId], references: [id])
+
+  @@index([legalCaseId])
+  @@index([lawyerId])
+  @@index([documentId])
+  @@map("legal_case_doc_access")
+}
+
+model LegalCaseDocRequest {
+  id            String    @id @default(uuid())
+  legalCaseId   String    @map("legal_case_id")
+  lawyerId      String    @map("lawyer_id")
+  requestText   String    @map("request_text")
+  status        String    @default("pending") @map("status") // pending, fulfilled, closed
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  legalCase     LegalCase @relation(fields: [legalCaseId], references: [id])
+
+  @@index([legalCaseId])
+  @@map("legal_case_doc_requests")
+}
+
+// STORY 12-6: Legal Opinion Upload
+model LegalOpinion {
+  id              String          @id @default(uuid())
+  legalCaseId     String          @unique @map("legal_case_id")
+  lawyerId        String          @map("lawyer_id")
+  opinionDocUrl   String          @map("opinion_doc_url")
+  opinionType     OpinionType     @map("opinion_type")
+  summary         String?         @db.VarChar(500)
+  conditions      String?         @db.Text // for Conditional opinions
+  approvalStatus  OpinionApproval @default(PENDING_REVIEW) @map("approval_status")
+  reviewedBy      String?         @map("reviewed_by")
+  reviewedAt      DateTime?       @map("reviewed_at")
+  reviewNotes     String?         @map("review_notes")
+  submittedAt     DateTime        @default(now()) @map("submitted_at")
+  deliveredAt     DateTime?       @map("delivered_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  legalCase       LegalCase       @relation(fields: [legalCaseId], references: [id])
+
+  @@index([lawyerId])
+  @@index([approvalStatus])
+  @@map("legal_opinions")
+}
+
+enum OpinionType {
+  FAVORABLE
+  ADVERSE
+  CONDITIONAL
+}
+
+enum OpinionApproval {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+// STORY 12-8: Lawyer Payment & Marketplace Commission
+model LawyerPayout {
+  id                  String          @id @default(uuid())
+  lawyerId            String          @map("lawyer_id")
+  legalCaseId         String          @map("legal_case_id")
+  grossFeeInPaise     Int             @map("gross_fee_in_paise")
+  commissionRate      Int             @map("commission_rate") // percentage
+  commissionInPaise   Int             @map("commission_in_paise")
+  netPayoutInPaise    Int             @map("net_payout_in_paise")
+  payoutStatus        PayoutStatus    @default(PENDING) @map("payout_status")
+  payoutBatchId       String?         @map("payout_batch_id")
+  transactionId       String?         @map("transaction_id")
+  payoutMethod        String?         @map("payout_method") // NEFT, UPI
+  confirmedAt         DateTime?       @map("confirmed_at")
+  processedAt         DateTime?       @map("processed_at")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+
+  lawyer              Lawyer          @relation(fields: [lawyerId], references: [id])
+  legalCase           LegalCase       @relation(fields: [legalCaseId], references: [id])
+
+  @@index([lawyerId, payoutStatus])
+  @@index([payoutBatchId])
+  @@map("lawyer_payouts")
+}
+
+model LawyerBankAccount {
+  id                  String    @id @default(uuid())
+  lawyerId            String    @map("lawyer_id")
+  accountHolderName   String    @map("account_holder_name")
+  accountNumber       String    @map("account_number") // encrypted
+  ifscCode            String    @map("ifsc_code")
+  bankName            String    @map("bank_name")
+  upiId               String?   @map("upi_id")
+  isDefault           Boolean   @default(true) @map("is_default")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  lawyer              Lawyer    @relation(fields: [lawyerId], references: [id])
+
+  @@index([lawyerId])
+  @@map("lawyer_bank_accounts")
+}
+
+enum PayoutStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// STORY 12-9: Customer Rates Legal Opinion Quality
+model LegalOpinionRating {
+  id            String    @id @default(uuid())
+  legalCaseId   String    @unique @map("legal_case_id")
+  lawyerId      String    @map("lawyer_id")
+  customerId    String    @map("customer_id")
+  rating        Int       @map("rating") // 1-5
+  feedback      String?   @db.VarChar(500)
+  ratedAt       DateTime  @default(now()) @map("rated_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  legalCase     LegalCase @relation(fields: [legalCaseId], references: [id])
+  lawyer        Lawyer    @relation(fields: [lawyerId], references: [id])
+
+  @@index([lawyerId])
+  @@index([customerId])
+  @@map("legal_opinion_ratings")
+}
+
+// ============================================================
+// EPIC 11: Builder Portal & Bulk Services
+// ============================================================
+
+// STORY 11-1: Builder Registration & Project Setup
+
+enum BuilderStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  SUSPENDED
+
+  @@map("builder_status")
+}
+
+enum ProjectType {
+  RESIDENTIAL
+  COMMERCIAL
+  MIXED
+
+  @@map("project_type")
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+
+  @@map("project_status")
+}
+
+model Builder {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String        @unique @map("user_id")
+  companyName   String        @map("company_name")
+  reraNumber    String        @unique @map("rera_number")
+  gstNumber     String        @map("gst_number")
+  contactEmail  String?       @map("contact_email")
+  contactPhone  String        @map("contact_phone")
+  status        BuilderStatus @default(PENDING_VERIFICATION)
+  cityId        String        @map("city_id")
+  verifiedAt    DateTime?     @map("verified_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  city                City                @relation(fields: [cityId], references: [id])
+  projects            BuilderProject[]
+  bulkServiceRequests BulkServiceRequest[]
+  pricingTiers        BuilderPricingTier[]
+  contracts           BuilderContract[]
+  broadcasts          BuilderBroadcast[]
+  inboxMessages       BuilderInboxMessage[]
+
+  @@index([cityId])
+  @@index([status])
+  @@map("builders")
+}
+
+// ============================================================
+// EPIC 7: Notifications & Communication Hub
+// ============================================================
+
+// STORY 7-1: Notification Templates Schema & Seeding
+enum NotificationEventType {
+  service_status_change
+  payment_confirmation
+  document_delivered
+  sla_alert
+  auto_reassurance
+  disruption_broadcast
+  task_assignment
+  agent_communication
+  campaign_marketing
+  receipt_delivery
+  otp
+  payment_link
+
+  @@map("notification_event_type")
+}
+
+enum NotificationChannel {
+  push
+  whatsapp
+  sms
+
+  @@map("notification_channel")
+}
+
+enum TemplateLanguage {
+  hi
+  en
+
+  @@map("template_language")
+}
+
+model NotificationTemplate {
+  id                   String                @id @default(uuid())
+  templateCode         String                @unique @map("template_code")
+  eventType            NotificationEventType @map("event_type")
+  channel              NotificationChannel
+  language             TemplateLanguage
+  subject              String?
+  body                 String                @db.Text
+  version              Int                   @default(1)
+  isActive             Boolean               @default(true) @map("is_active")
+  whatsappTemplateName String?               @map("whatsapp_template_name")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+
+  @@unique([eventType, channel, language, version])
+  @@index([eventType, language])
+  @@index([channel])
+  @@map("notification_templates")
+}
+
+// STORY 7-2: Notification Queue & Logging
+enum NotificationStatus {
+  queued
+  sent
+  delivered
+  read
+  failed
+  skipped
+
+  @@map("notification_status")
+}
+
+enum NotificationPriority {
+  high
+  normal
+  low
+
+  @@map("notification_priority")
+}
+
+model NotificationLog {
+  id                String               @id @default(uuid())
+  userId            String               @map("user_id")
+  templateCode      String               @map("template_code")
+  channel           NotificationChannel
+  language          TemplateLanguage
+  subject           String?
+  body              String               @db.Text
+  contextDataHash   String?              @map("context_data_hash")
+  serviceInstanceId String?              @map("service_instance_id")
+  priority          NotificationPriority @default(normal)
+  status            NotificationStatus   @default(queued)
+  externalMessageId String?              @map("external_message_id")
+  sentAt            DateTime?            @map("sent_at")
+  deliveredAt       DateTime?            @map("delivered_at")
+  readAt            DateTime?            @map("read_at")
+  failedAt          DateTime?            @map("failed_at")
+  failureReason     String?              @map("failure_reason")
+  retryCount        Int                  @default(0) @map("retry_count")
+  createdAt         DateTime             @default(now()) @map("created_at")
+
+  @@index([userId, templateCode, serviceInstanceId, contextDataHash])
+  @@index([userId, createdAt])
+  @@index([status])
+  @@index([channel, status])
+  @@index([externalMessageId])
+  @@map("notification_log")
+}
+
+model FailedNotification {
+  id                String              @id @default(uuid())
+  notificationLogId String              @map("notification_log_id")
+  userId            String              @map("user_id")
+  templateCode      String              @map("template_code")
+  channel           NotificationChannel
+  contextData       Json                @map("context_data") @db.JsonB
+  failureReason     String              @map("failure_reason")
+  retryCount        Int                 @map("retry_count")
+  resolvedAt        DateTime?           @map("resolved_at")
+  resolvedBy        String?             @map("resolved_by")
+  createdAt         DateTime            @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([resolvedAt])
+  @@index([createdAt])
+  @@map("failed_notifications")
+}
+
+// STORY 7-3: User Device Tokens for FCM
+model UserDevice {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  platform  String   // 'android' | 'ios'
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("user_devices")
+}
+
+// STORY 7-4: Notification Opt-Out
+model NotificationOptOut {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  channel   String   // 'whatsapp', 'sms', 'push'
+  optedOutAt DateTime @map("opted_out_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, channel], map: "notification_opt_out_user_channel")
+  @@map("notification_opt_outs")
+}
+
+// STORY 7-5: SMS Cost Log
+model SmsCostLog {
+  id                    String   @id @default(uuid())
+  notificationMessageId String   @map("notification_message_id")
+  userId                String   @map("user_id")
+  phone                 String
+  costInPaise           Int      @map("cost_in_paise")
+  provider              String   // 'msg91' | 'twilio'
+  sentAt                DateTime @map("sent_at")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([sentAt])
+  @@map("sms_cost_log")
+}
+
+// STORY 7-6: Campaigns
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+
+  @@map("campaign_status")
+}
+
+model Campaign {
+  id              String         @id @default(uuid())
+  name            String
+  templateCode    String         @map("template_code")
+  audienceFilter  Json           @map("audience_filter") @db.JsonB
+  parameters      Json           @db.JsonB
+  scheduledAt     DateTime?      @map("scheduled_at")
+  status          CampaignStatus @default(DRAFT)
+  totalRecipients Int            @default(0) @map("total_recipients")
+  sentCount       Int            @default(0) @map("sent_count")
+  deliveredCount  Int            @default(0) @map("delivered_count")
+  readCount       Int            @default(0) @map("read_count")
+  failedCount     Int            @default(0) @map("failed_count")
+  createdBy       String         @map("created_by")
+  cityId          String         @map("city_id")
+  startedAt       DateTime?      @map("started_at")
+  completedAt     DateTime?      @map("completed_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([cityId])
+  @@index([scheduledAt])
+  @@map("campaigns")
+}
+
+// STORY 7-7: User Notification Preferences
+model UserNotificationPreference {
+  id                     String           @id @default(uuid())
+  userId                 String           @unique @map("user_id")
+  serviceUpdatesPush     Boolean          @default(true) @map("service_updates_push")
+  serviceUpdatesWhatsapp Boolean          @default(true) @map("service_updates_whatsapp")
+  paymentPush            Boolean          @default(true) @map("payment_push")
+  paymentSms             Boolean          @default(true) @map("payment_sms")
+  documentPush           Boolean          @default(true) @map("document_push")
+  documentWhatsapp       Boolean          @default(true) @map("document_whatsapp")
+  marketingWhatsapp      Boolean          @default(true) @map("marketing_whatsapp")
+  preferredLanguage      TemplateLanguage @default(hi) @map("preferred_language")
+  createdAt              DateTime         @default(now()) @map("created_at")
+  updatedAt              DateTime         @updatedAt @map("updated_at")
+
+  @@map("user_notification_preferences")
+}
+
+// STORY 7-9: Service Communications (Agent-Customer)
+enum CommunicationType {
+  whatsapp_call
+  whatsapp_video
+  whatsapp_message
+  auto_reassurance
+  status_update
+  halt_alert
+  disruption_broadcast
+  disruption_resolved
+
+  @@map("communication_type")
+}
+
+model ServiceCommunication {
+  id                String            @id @default(uuid())
+  serviceInstanceId String            @map("service_instance_id")
+  agentId           String?           @map("agent_id")
+  customerId        String?           @map("customer_id")
+  communicationType CommunicationType @map("communication_type")
+  channel           String?           // whatsapp | sms | push (Story 5-16)
+  messageTemplate   String?           @map("message_template")
+  messageContent    String?           @map("message_content") @db.Text
+  metadata          Json?             @db.JsonB
+  deliveryStatus    String?           @map("delivery_status") // pending | sent | delivered | failed
+  sentAt            DateTime          @default(now()) @map("sent_at")
+  initiatedAt       DateTime          @default(now()) @map("initiated_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  serviceInstance   ServiceInstance   @relation(fields: [serviceInstanceId], references: [id])
+
+  @@index([serviceInstanceId])
+  @@index([agentId])
+  @@index([customerId])
+  @@index([serviceInstanceId, communicationType], name: "idx_service_comms_instance_type")
+  @@map("service_communications")
+}
+
+model BuilderProject {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  builderId   String        @map("builder_id") @db.Uuid
+  name        String
+  totalUnits  Int           @map("total_units")
+  location    String
+  projectType ProjectType   @map("project_type")
+  cityId      String        @map("city_id")
+  status      ProjectStatus @default(DRAFT)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  builder             Builder              @relation(fields: [builderId], references: [id])
+  city                City                 @relation(fields: [cityId], references: [id])
+  units               ProjectUnit[]
+  bulkServiceRequests BulkServiceRequest[]
+  pricingTier         BuilderPricingTier?
+  contracts           BuilderContract[]
+  broadcasts          BuilderBroadcast[]
+  inboxMessages       BuilderInboxMessage[]
+
+  @@index([builderId])
+  @@index([cityId])
+  @@map("builder_projects")
+}
+
+// STORY 11-2: Buyer List Upload for Project Units
+
+enum UnitStatus {
+  PENDING_SERVICES
+  SERVICES_ACTIVE
+  SERVICES_COMPLETED
+
+  @@map("unit_status")
+}
+
+model ProjectUnit {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId    String     @map("project_id") @db.Uuid
+  unitNumber   String     @map("unit_number")
+  buyerName    String     @map("buyer_name")
+  buyerPhone   String     @map("buyer_phone")
+  buyerEmail   String?    @map("buyer_email")
+  buyerUserId  String?    @map("buyer_user_id")
+  status       UnitStatus @default(PENDING_SERVICES)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  project             BuilderProject       @relation(fields: [projectId], references: [id])
+  broadcastDeliveries BroadcastDelivery[]
+  inboxMessages       BuilderInboxMessage[]
+
+  @@unique([projectId, unitNumber])
+  @@index([projectId])
+  @@index([status])
+  @@map("project_units")
+}
+
+// STORY 11-3: Bulk Service Selection Interface
+
+enum BulkServiceStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  @@map("bulk_service_status")
+}
+
+model BulkServiceRequest {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId          String            @map("project_id") @db.Uuid
+  builderId          String            @map("builder_id") @db.Uuid
+  serviceIds         String[]          @map("service_ids")
+  packageIds         String[]          @map("package_ids")
+  unitIds            String[]          @map("unit_ids")
+  allUnits           Boolean           @default(false) @map("all_units")
+  unitCount          Int               @map("unit_count")
+  status             BulkServiceStatus @default(PENDING)
+  totalFeePaise      BigInt            @map("total_fee_paise")
+  discountPct        Int               @default(0) @map("discount_pct")
+  discountedFeePaise BigInt            @map("discounted_fee_paise")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  project BuilderProject @relation(fields: [projectId], references: [id])
+  builder Builder        @relation(fields: [builderId], references: [id])
+
+  @@index([projectId])
+  @@index([builderId])
+  @@map("bulk_service_requests")
+}
+
+// STORY 11-6: Bulk Pricing & Discount Engine
+
+enum PricingTierStatus {
+  AUTO
+  CUSTOM_PENDING
+  CUSTOM_APPROVED
+  CUSTOM_REJECTED
+
+  @@map("pricing_tier_status")
+}
+
+model BuilderPricingTier {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String            @unique @map("project_id") @db.Uuid
+  builderId   String            @map("builder_id") @db.Uuid
+  unitCount   Int               @map("unit_count")
+  tierName    String            @map("tier_name")
+  discountPct Int               @map("discount_pct")
+  status      PricingTierStatus @default(AUTO)
+  approvedBy  String?           @map("approved_by") @db.Uuid
+  approvedAt  DateTime?         @map("approved_at")
+  notes       String?           @db.Text
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  project BuilderProject @relation(fields: [projectId], references: [id])
+  builder Builder        @relation(fields: [builderId], references: [id])
+
+  @@index([builderId])
+  @@map("builder_pricing_tiers")
+}
+
+// STORY 11-8: Annual Service Contract Management
+
+enum ContractStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  AMENDMENT_PENDING
+  EXPIRED
+  CANCELLED
+
+  @@map("contract_status")
+}
+
+model BuilderContract {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  builderId       String         @map("builder_id") @db.Uuid
+  projectId       String?        @map("project_id") @db.Uuid
+  contractNumber  String         @unique @map("contract_number")
+  serviceIds      String[]       @map("service_ids")
+  unitCount       Int            @map("unit_count")
+  discountPct     Int            @map("discount_pct")
+  status          ContractStatus @default(DRAFT)
+  validFrom       DateTime       @map("valid_from")
+  validTo         DateTime       @map("valid_to")
+  autoRenew       Boolean        @default(true) @map("auto_renew")
+  totalValuePaise BigInt         @map("total_value_paise")
+  utilizedUnits   Int            @default(0) @map("utilized_units")
+  approvedBy      String?        @map("approved_by") @db.Uuid
+  approvedAt      DateTime?      @map("approved_at")
+  notes           String?        @db.Text
+  amendmentNotes  String?        @map("amendment_notes") @db.Text
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  builder Builder         @relation(fields: [builderId], references: [id])
+  project BuilderProject? @relation(fields: [projectId], references: [id])
+
+  @@index([builderId])
+  @@index([status])
+  @@index([validTo])
+  @@map("builder_contracts")
+}
+
+// STORY 11-9: Builder-Buyer Communication Channel
+
+enum BroadcastStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENDING
+  SENT
+  REJECTED
+
+  @@map("broadcast_status")
+}
+
+enum MessageDeliveryStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+
+  @@map("message_delivery_status")
+}
+
+model BuilderBroadcast {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  builderId       String          @map("builder_id") @db.Uuid
+  projectId       String          @map("project_id") @db.Uuid
+  message         String          @db.VarChar(500)
+  recipientFilter Json?           @map("recipient_filter") @db.JsonB
+  recipientCount  Int             @map("recipient_count")
+  status          BroadcastStatus @default(DRAFT)
+  approvedBy      String?         @map("approved_by") @db.Uuid
+  sentAt          DateTime?       @map("sent_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  builder    Builder             @relation(fields: [builderId], references: [id])
+  project    BuilderProject      @relation(fields: [projectId], references: [id])
+  deliveries BroadcastDelivery[]
+
+  @@index([builderId])
+  @@index([projectId])
+  @@map("builder_broadcasts")
+}
+
+model BroadcastDelivery {
+  id          String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  broadcastId String                @map("broadcast_id") @db.Uuid
+  unitId      String                @map("unit_id") @db.Uuid
+  buyerPhone  String                @map("buyer_phone")
+  status      MessageDeliveryStatus @default(QUEUED)
+  sentAt      DateTime?             @map("sent_at")
+  deliveredAt DateTime?             @map("delivered_at")
+  readAt      DateTime?             @map("read_at")
+  createdAt   DateTime              @default(now()) @map("created_at")
+
+  broadcast BuilderBroadcast @relation(fields: [broadcastId], references: [id])
+  unit      ProjectUnit      @relation(fields: [unitId], references: [id])
+
+  @@index([broadcastId])
+  @@map("broadcast_deliveries")
+}
+
+model BuilderInboxMessage {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  builderId   String   @map("builder_id") @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  unitId      String   @map("unit_id") @db.Uuid
+  senderPhone String   @map("sender_phone")
+  senderName  String   @map("sender_name")
+  message     String   @db.Text
+  isRead      Boolean  @default(false) @map("is_read")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  builder Builder        @relation(fields: [builderId], references: [id])
+  project BuilderProject @relation(fields: [projectId], references: [id])
+  unit    ProjectUnit    @relation(fields: [unitId], references: [id])
+
+  @@index([builderId, isRead])
+  @@index([projectId])
+  @@map("builder_inbox_messages")
+}
+
+// ============================================================
+// EPIC 10: Customer Support & Escalation Management
+// ============================================================
+
+// STORY 10.2: Internal Messaging with Field Agents
+model SupportAgentMessage {
+  id             String       @id @default(uuid())
+  senderId       String       @map("sender_id")
+  recipientId    String       @map("recipient_id")
+  serviceId      String       @map("service_id")
+  messageText    String       @map("message_text") @db.Text
+  attachmentUrl  String?      @map("attachment_url")
+  attachmentType String?      @map("attachment_type") // photo, document
+  readStatus     Boolean      @default(false) @map("read_status")
+  threadStatus   ThreadStatus @default(ACTIVE) @map("thread_status")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([serviceId])
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([serviceId, createdAt])
+  @@map("support_agent_messages")
+}
+
+enum ThreadStatus {
+  ACTIVE
+  RESOLVED
+}
+
+// STORY 10.3: Pre-Built Communication Templates
+model SupportTemplate {
+  id             String           @id @default(uuid())
+  category       TemplateCategory
+  templateTextEn String           @map("template_text_en") @db.Text
+  templateTextHi String           @map("template_text_hi") @db.Text
+  placeholders   String[]         @default([])
+  isActive       Boolean          @default(true) @map("is_active")
+  createdBy      String           @map("created_by")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  usageLogs SupportTemplateUsage[]
+
+  @@index([category])
+  @@map("support_templates")
+}
+
+model SupportTemplateUsage {
+  id         String   @id @default(uuid())
+  templateId String   @map("template_id")
+  usedBy     String   @map("used_by")
+  serviceId  String?  @map("service_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  template SupportTemplate @relation(fields: [templateId], references: [id])
+
+  @@index([templateId])
+  @@index([usedBy])
+  @@map("support_template_usage")
+}
+
+enum TemplateCategory {
+  DOCUMENT_REQUESTS
+  TIMELINE_UPDATES
+  ISSUE_RESOLUTION
+  GENERAL_INQUIRY
+}
+
+// STORY 10.4: Follow-Up Reminder Scheduling
+model SupportReminder {
+  id               String         @id @default(uuid())
+  supportAgentId   String         @map("support_agent_id")
+  serviceId        String         @map("service_id")
+  reminderDatetime DateTime       @map("reminder_datetime")
+  reminderType     ReminderType   @map("reminder_type")
+  notes            String?        @db.Text
+  status           ReminderStatus @default(PENDING)
+  snoozedUntil     DateTime?      @map("snoozed_until")
+  completedAt      DateTime?      @map("completed_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  @@index([supportAgentId, status])
+  @@index([reminderDatetime])
+  @@index([status])
+  @@map("support_reminders")
+}
+
+enum ReminderType {
+  FOLLOW_UP_CUSTOMER
+  CHECK_WITH_AGENT
+  ESCALATE_TO_OPS
+}
+
+enum ReminderStatus {
+  PENDING
+  COMPLETED
+  SNOOZED
+}
+
+// STORY 10.5: Case Pattern Logging
+model SupportCasePattern {
+  id              String          @id @default(uuid())
+  serviceId       String          @map("service_id")
+  customerId      String          @map("customer_id")
+  patternCategory PatternCategory @map("pattern_category")
+  notes           String?         @db.Text
+  loggedBy        String          @map("logged_by")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  @@index([serviceId])
+  @@index([patternCategory])
+  @@index([createdAt])
+  @@map("support_case_patterns")
+}
+
+enum PatternCategory {
+  DOCUMENT_CONFUSION
+  PAYMENT_ISSUES
+  AGENT_COMMUNICATION_GAP
+  GOVERNMENT_OFFICE_DELAYS
+  SLA_MISALIGNMENT
+  OTHER
+}
+
+// STORY 10.6: Agent Performance Notes (Immutable - append only)
+model AgentPerformanceNote {
+  id        String   @id @default(uuid())
+  agentId   String   @map("agent_id")
+  serviceId String   @map("service_id")
+  noteType  NoteType @map("note_type")
+  notes     String   @db.Text
+  loggedBy  String   @map("logged_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([agentId])
+  @@index([agentId, createdAt])
+  @@map("agent_performance_notes")
+}
+
+enum NoteType {
+  POSITIVE_FEEDBACK
+  CONCERN
+  NEUTRAL_OBSERVATION
+}
+
+// STORY 10.7: Support Escalation SLA Tracking
+model SupportEscalation {
+  id                    String             @id @default(uuid())
+  serviceId             String             @map("service_id")
+  customerId            String             @map("customer_id")
+  assignedAgentId       String?            @map("assigned_agent_id")
+  escalationType        EscalationType     @map("escalation_type")
+  escalationReason      String             @map("escalation_reason") @db.Text
+  severity              EscalationSeverity @default(STANDARD)
+  status                EscalationStatus   @default(OPEN)
+  firstResponseDue      DateTime           @map("first_response_due")
+  resolutionDue         DateTime           @map("resolution_due")
+  firstResponseAt       DateTime?          @map("first_response_at")
+  resolvedAt            DateTime?          @map("resolved_at")
+  firstResponseBreached Boolean            @default(false) @map("first_response_breached")
+  resolutionBreached    Boolean            @default(false) @map("resolution_breached")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([assignedAgentId])
+  @@index([firstResponseDue])
+  @@index([resolutionDue])
+  @@index([serviceId])
+  @@map("support_escalations")
+}
+
+enum EscalationType {
+  CUSTOMER_COMPLAINT
+  SLA_BREACH
+  AGENT_ISSUE
+  AUTO_GENERATED
+}
+
+enum EscalationSeverity {
+  STANDARD
+  COMPLEX
+}
+
+enum EscalationStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  ESCALATED_TO_OPS
+}
+
+// STORY 10.10: Support Communication with Customers
+model SupportCustomerMessage {
+  id              String          @id @default(uuid())
+  serviceId       String          @map("service_id")
+  senderId        String          @map("sender_id")
+  senderType      SenderType      @map("sender_type")
+  recipientId     String          @map("recipient_id")
+  subject         String?
+  messageText     String          @map("message_text") @db.Text
+  attachmentUrl   String?         @map("attachment_url")
+  deliveryChannel DeliveryChannel @map("delivery_channel")
+  deliveryStatus  DeliveryStatus  @default(PENDING_DELIVERY) @map("delivery_status")
+  readAt          DateTime?       @map("read_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  @@index([serviceId, createdAt])
+  @@index([recipientId, readAt])
+  @@map("support_customer_messages")
+}
+
+enum SenderType {
+  SUPPORT_AGENT
+  CUSTOMER
+}
+
+enum DeliveryChannel {
+  PUSH_ONLY
+  PUSH_AND_WHATSAPP
+}
+
+enum DeliveryStatus {
+  PENDING_DELIVERY
+  SENT
+  DELIVERED
+  FAILED
+}
+
+// STORY 10.12: Support Agent Performance Metrics (Pre-computed)
+model SupportAgentMetrics {
+  id                      String   @id @default(uuid())
+  agentId                 String   @map("agent_id")
+  periodStart             DateTime @map("period_start")
+  periodEnd               DateTime @map("period_end")
+  casesHandled            Int      @default(0) @map("cases_handled")
+  casesResolved           Int      @default(0) @map("cases_resolved")
+  avgFirstResponseMinutes Float    @default(0) @map("avg_first_response_minutes")
+  avgResolutionHours      Float    @default(0) @map("avg_resolution_hours")
+  firstResponseSlaPercent Float    @default(0) @map("first_response_sla_percent")
+  resolutionSlaPercent    Float    @default(0) @map("resolution_sla_percent")
+  patternsLogged          Int      @default(0) @map("patterns_logged")
+  customerSatisfaction    Float?   @map("customer_satisfaction")
+  computedAt              DateTime @default(now()) @map("computed_at")
+
+  @@unique([agentId, periodStart, periodEnd])
+  @@index([agentId])
+  @@index([periodStart, periodEnd])
+  @@map("support_agent_metrics")
+}
+
+// ============================================================
+// EPIC 6: Document Management & AI Verification
+// ============================================================
+
+// Story 6.2: Documents table — stores metadata for all uploaded documents
+model Document {
+  id                       String    @id @default(uuid())
+  serviceInstanceId        String    @map("service_instance_id")
+  docType                  String    @map("doc_type")
+  storagePath              String    @map("storage_path")
+  downloadUrl              String    @map("download_url")
+  signedUrl                String?   @map("signed_url")
+  signedUrlExpiresAt       DateTime? @map("signed_url_expires_at")
+  fileSize                 Int       @map("file_size")
+  uploadedBy               String    @map("uploaded_by") // 'customer' | 'agent'
+  uploadedByUserId         String    @map("uploaded_by_user_id")
+  uploadedAt               DateTime  @default(now()) @map("uploaded_at")
+  verificationStatus       String    @default("pending") @map("verification_status") // pending | verified | rejected | needs_review
+  aiVerificationResult     Json?     @map("ai_verification_result") @db.JsonB
+  rejectionReason          String?   @map("rejection_reason")
+  verificationOverriddenBy String?   @map("verification_overridden_by")
+  verificationOverriddenAt DateTime? @map("verification_overridden_at")
+  stakeholderId            String?   @map("stakeholder_id")
+  agentNotes               String?   @map("agent_notes")
+  gpsLat                   Decimal?  @map("gps_lat") @db.Decimal(10, 7)
+  gpsLng                   Decimal?  @map("gps_lng") @db.Decimal(10, 7)
+  archivedAt               DateTime? @map("archived_at")
+  cityId                   String    @map("city_id")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  @@index([serviceInstanceId])
+  @@index([docType])
+  @@index([uploadedByUserId])
+  @@index([verificationStatus])
+  @@index([cityId])
+  @@index([stakeholderId])
+  @@map("documents")
+}
+
+// Story 6.3: Job execution logs for tracking background job outcomes
+model JobExecutionLog {
+  id           String   @id @default(uuid())
+  jobName      String   @map("job_name")
+  jobId        String   @map("job_id")
+  documentId   String?  @map("document_id")
+  startTime    DateTime @map("start_time")
+  endTime      DateTime @map("end_time")
+  durationMs   Int      @map("duration_ms")
+  result       String   // completed | failed | skipped
+  errorMessage String?  @map("error_message")
+  metadata     Json?    @db.JsonB
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([jobName])
+  @@index([documentId])
+  @@map("job_execution_logs")
+}
+
+// Story 6.4: Ops review tasks for document verification and other reviews
+model OpsReviewTask {
+  id           String    @id @default(uuid())
+  type         String    // document_review | escalation | data_deletion_review | stakeholder_unresponsive | suspicious_document_access
+  resourceId   String    @map("resource_id")
+  resourceType String    @map("resource_type")
+  status       String    @default("pending") // pending | completed | dismissed
+  assignedTo   String?   @map("assigned_to")
+  metadata     Json?     @db.JsonB
+  cityId       String    @map("city_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  completedAt  DateTime? @map("completed_at")
+
+  @@index([type, status])
+  @@index([cityId])
+  @@map("ops_review_tasks")
+}
+
+// Story 6.6: AI accuracy flags for tracking human corrections to AI predictions
+model AiAccuracyFlag {
+  id               String   @id @default(uuid())
+  documentId       String   @map("document_id")
+  originalAiResult Json     @map("original_ai_result") @db.JsonB
+  humanDecision    String   @map("human_decision") // verified | rejected
+  flaggedBy        String   @map("flagged_by")
+  notes            String   @default("")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([documentId])
+  @@map("ai_accuracy_flags")
+}
+
+// Story 6.9: Service communications log merged into Story 7-9 ServiceCommunication above
+
+// Story 6.10: Lawyer case assignments for scoped document access
+model LawyerCaseAssignment {
+  id                String    @id @default(uuid())
+  lawyerId          String    @map("lawyer_id")
+  serviceInstanceId String    @map("service_instance_id")
+  status            String    @default("active") // active | completed | closed
+  assignedAt        DateTime  @default(now()) @map("assigned_at")
+  closedAt          DateTime? @map("closed_at")
+  cityId            String    @map("city_id")
+
+  @@unique([lawyerId, serviceInstanceId])
+  @@index([lawyerId])
+  @@index([serviceInstanceId])
+  @@map("lawyer_case_assignments")
+}
+
+// Story 6.11a: Service stakeholders for multi-party document coordination
+model ServiceStakeholder {
+  id                String    @id @default(uuid())
+  serviceInstanceId String    @map("service_instance_id")
+  userId            String?   @map("user_id") // null until accepted
+  name              String
+  phone             String
+  relationship      String    // co_heir | spouse | poa_holder
+  role              String    @default("stakeholder") // primary | stakeholder
+  status            String    @default("invited") // invited | accepted | declined
+  invitedAt         DateTime  @default(now()) @map("invited_at")
+  acceptedAt        DateTime? @map("accepted_at")
+  cityId            String    @map("city_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  @@index([serviceInstanceId])
+  @@index([userId])
+  @@index([phone])
+  @@map("service_stakeholders")
+}
+
+// Story 6.12: Data deletion requests
+model DataDeletionRequest {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  status      String    @default("pending") // pending | approved | rejected | processing | completed
+  reason      String?
+  reviewedBy  String?   @map("reviewed_by")
+  reviewedAt  DateTime? @map("reviewed_at")
+  reviewNotes String?   @map("review_notes")
+  processedAt DateTime? @map("processed_at")
+  cityId      String    @map("city_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([status])
+  @@map("data_deletion_requests")
+}
+
+// Story 6.12: Deletion audit log — immutable record of all deletion actions
+model DeletionAuditLog {
+  id         String   @id @default(uuid())
+  requestId  String   @map("request_id")
+  userId     String   @map("user_id")
+  action     String   // profile_masked | documents_deleted | communications_deleted | data_retained
+  details    Json     @db.JsonB
+  executedAt DateTime @default(now()) @map("executed_at")
+
+  @@index([requestId])
+  @@index([userId])
+  @@map("deletion_audit_logs")
+}
+
+// Story 6.13: Audit log — immutable record of all security-sensitive operations
+model AuditLog {
+  id                String   @id @default(uuid())
+  userId            String   @map("user_id")
+  userRole          String   @map("user_role")
+  action            String   // document_upload | document_view | document_download | document_delete | document_archived
+  resourceType      String   @map("resource_type")
+  resourceId        String   @map("resource_id")
+  serviceInstanceId String?  @map("service_instance_id")
+  metadata          Json?    @db.JsonB
+  ipAddress         String?  @map("ip_address")
+  userAgent         String?  @map("user_agent")
+  deviceInfo        String?  @map("device_info")
+  createdAt         DateTime @default(now()) @map("created_at")
+  // NO updatedAt — immutable table (NFR42)
+
+  @@index([userId])
+  @@index([resourceId])
+  @@index([serviceInstanceId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// EPIC 5: Workflow Engine, Service Tracking & SLA Management
+// ============================================================
+
+// Story 5-1: Service Definitions — config-driven JSONB service catalog
+model ServiceDefinition {
+  id           String   @id @default(uuid())
+  code         String   @unique // PRE-001, PUR-001 etc.
+  name         String
+  category     String   // pre_purchase, purchase, post_purchase, inheritance, construction, utility, specialized
+  definition   Json     @db.JsonB // Full config: steps, documents, fees, offices
+  isActive     Boolean  @default(true) @map("is_active")
+  cityId       String   @map("city_id")
+  version      Int      @default(1)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  city              City               @relation(fields: [cityId], references: [id])
+  serviceInstances  ServiceInstance[]
+  packageItems      PackageItem[]
+
+  @@index([category])
+  @@index([cityId])
+  @@index([isActive])
+  @@map("service_definitions")
+}
+
+// Story 5-1: Packages — bundled services with discounts
+model Package {
+  id               String   @id @default(uuid())
+  code             String   @unique
+  name             String
+  description      String?
+  discountPercent  Int      @map("discount_percent") @default(0)
+  isActive         Boolean  @default(true) @map("is_active")
+  definition       Json?    @db.JsonB // conditions, included service codes, etc.
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  packageItems     PackageItem[]
+
+  @@map("packages")
+}
+
+// Story 5-1: Package items — services included in a package
+model PackageItem {
+  id                  String   @id @default(uuid())
+  packageId           String   @map("package_id")
+  serviceDefinitionId String   @map("service_definition_id")
+  isRequired          Boolean  @default(true) @map("is_required")
+  sortOrder           Int      @default(0) @map("sort_order")
+
+  package             Package           @relation(fields: [packageId], references: [id])
+  serviceDefinition   ServiceDefinition @relation(fields: [serviceDefinitionId], references: [id])
+
+  @@unique([packageId, serviceDefinitionId])
+  @@map("package_items")
+}
+
+// Story 5-1: Service Instances — a customer's specific service in progress
+model ServiceInstance {
+  id                  String    @id @default(uuid())
+  serviceDefinitionId String    @map("service_definition_id")
+  customerId          String    @map("customer_id")
+  assignedAgentId     String?   @map("assigned_agent_id")
+  packageInstanceId   String?   @map("package_instance_id")
+  cityId              String    @map("city_id")
+  state               String    @default("requested") // requested, assigned, payment_pending, paid, in_progress, step_1..step_N, completed, delivered, halted, refund_pending, cancelled
+  currentStepIndex    Int       @default(0) @map("current_step_index")
+  slaDeadline         DateTime? @map("sla_deadline")
+  slaPausedAt         DateTime? @map("sla_paused_at")
+  slaPausedDuration   Int       @default(0) @map("sla_paused_duration") // in minutes
+  metadata            Json?     @db.JsonB
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  serviceDefinition   ServiceDefinition       @relation(fields: [serviceDefinitionId], references: [id])
+  city                City                    @relation(fields: [cityId], references: [id])
+  stateHistory        ServiceStateHistory[]
+  communications      ServiceCommunication[]
+  escalations         Escalation[]
+
+  @@index([customerId])
+  @@index([assignedAgentId])
+  @@index([state])
+  @@index([cityId])
+  @@index([slaDeadline])
+  @@map("service_instances")
+}
+
+// Story 5-1: State transition history — full audit trail
+model ServiceStateHistory {
+  id                String   @id @default(uuid())
+  serviceInstanceId String   @map("service_instance_id")
+  fromState         String   @map("from_state")
+  toState           String   @map("to_state")
+  changedBy         String   @map("changed_by")
+  reason            String?
+  metadata          Json?    @db.JsonB
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  serviceInstance   ServiceInstance @relation(fields: [serviceInstanceId], references: [id])
+
+  @@index([serviceInstanceId])
+  @@index([createdAt])
+  @@map("service_state_history")
+}
+
+// Story 5-12: Escalations — SLA breach escalation tracking
+model Escalation {
+  id                String    @id @default(uuid())
+  serviceInstanceId String    @map("service_instance_id")
+  level             Int       @default(1) // 1 = first level, 2 = second level
+  reason            String
+  status            String    @default("open") // open, acknowledged, resolved
+  assignedTo        String?   @map("assigned_to")
+  acknowledgedAt    DateTime? @map("acknowledged_at")
+  resolvedAt        DateTime? @map("resolved_at")
+  resolvedBy        String?   @map("resolved_by")
+  cityId            String    @map("city_id")
+  metadata          Json?     @db.JsonB
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  serviceInstance   ServiceInstance @relation(fields: [serviceInstanceId], references: [id])
+  city              City            @relation(fields: [cityId], references: [id])
+
+  @@index([serviceInstanceId])
+  @@index([status])
+  @@index([cityId])
+  @@map("escalations")
+}
+
+// Story 5-17: Disruptions — government office closures affecting services
+model Disruption {
+  id              String    @id @default(uuid())
+  officeName      String    @map("office_name")
+  department      String?
+  disruptionType  String    @map("disruption_type") // closure, strike, system_down
+  startDate       DateTime  @map("start_date")
+  endDate         DateTime  @map("end_date")
+  notes           String?
+  status          String    @default("active") // active, resolved
+  resolvedAt      DateTime? @map("resolved_at")
+  resolvedBy      String?   @map("resolved_by")
+  affectedCount   Int       @default(0) @map("affected_count")
+  cityId          String    @map("city_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  city            City      @relation(fields: [cityId], references: [id])
+
+  @@index([status], name: "idx_disruptions_status")
+  @@index([cityId], name: "idx_disruptions_city")
+  @@map("disruptions")
+}
