@@ -2,31 +2,9 @@
  * Fee variance service for reporting and resolving government fee discrepancies.
  *
  * Story 4.6: Fee Variance Handling
- *
- * TODO: FeeVariance model does not exist in the Prisma schema yet.
- * All prisma calls are stubbed until the model is added.
  */
 import { PrismaClient } from '@prisma/client';
 import { AppError } from '../../core/errors/app-error.js';
-
-interface FeeVarianceRecord {
-  id: string;
-  serviceRequestId: string;
-  estimatedGovtFeePaise: number;
-  actualGovtFeePaise: number;
-  variancePaise: number;
-  varianceReasonEn: string;
-  varianceReasonHi: string;
-  reportedByOpsId: string;
-  status: string;
-  cityId: string;
-  evidenceUrls: string[];
-  adjustedAmountPaise?: number;
-  resolutionNotes?: string;
-  resolvedByOpsId?: string;
-  resolvedAt?: Date | null;
-  createdAt: Date;
-}
 
 export class FeeVarianceService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -47,22 +25,20 @@ export class FeeVarianceService {
   }) {
     const variancePaise = params.actualGovtFeePaise - params.estimatedGovtFeePaise;
 
-    // TODO: FeeVariance model does not exist in schema. Stubbed.
-    const variance: FeeVarianceRecord = {
-      id: crypto.randomUUID(),
-      serviceRequestId: params.serviceRequestId,
-      estimatedGovtFeePaise: params.estimatedGovtFeePaise,
-      actualGovtFeePaise: params.actualGovtFeePaise,
-      variancePaise,
-      varianceReasonEn: params.varianceReasonEn,
-      varianceReasonHi: params.varianceReasonHi,
-      reportedByOpsId: params.reportedByOpsId,
-      status: 'PENDING',
-      cityId: params.cityId,
-      evidenceUrls: params.evidenceUrls || [],
-      resolvedAt: null,
-      createdAt: new Date(),
-    };
+    const variance = await this.prisma.feeVariance.create({
+      data: {
+        serviceRequestId: params.serviceRequestId,
+        estimatedGovtFeePaise: params.estimatedGovtFeePaise,
+        actualGovtFeePaise: params.actualGovtFeePaise,
+        variancePaise,
+        varianceReasonEn: params.varianceReasonEn,
+        varianceReasonHi: params.varianceReasonHi,
+        reportedByOpsId: params.reportedByOpsId,
+        status: 'PENDING',
+        cityId: params.cityId,
+        evidenceUrls: params.evidenceUrls || [],
+      },
+    });
 
     return {
       id: variance.id,
@@ -82,23 +58,28 @@ export class FeeVarianceService {
     resolutionNotes: string;
     resolvedByOpsId: string;
   }) {
-    // TODO: FeeVariance model does not exist in schema. Stubbed.
-    // In a real implementation, fetch and update the variance record.
-    const updated: FeeVarianceRecord = {
-      id: params.varianceId,
-      serviceRequestId: '',
-      estimatedGovtFeePaise: 0,
-      actualGovtFeePaise: 0,
-      variancePaise: 0,
-      varianceReasonEn: '',
-      varianceReasonHi: '',
-      reportedByOpsId: '',
-      status: params.resolution,
-      cityId: '',
-      evidenceUrls: [],
-      resolvedAt: new Date(),
-      createdAt: new Date(),
-    };
+    const existing = await this.prisma.feeVariance.findUnique({
+      where: { id: params.varianceId },
+    });
+
+    if (!existing) {
+      throw new AppError('VARIANCE_NOT_FOUND', 'Fee variance not found', 404);
+    }
+
+    if (existing.status !== 'PENDING') {
+      throw new AppError('VARIANCE_ALREADY_RESOLVED', 'Fee variance has already been resolved', 422);
+    }
+
+    const updated = await this.prisma.feeVariance.update({
+      where: { id: params.varianceId },
+      data: {
+        status: params.resolution,
+        adjustedAmountPaise: params.adjustedAmountPaise,
+        resolutionNotes: params.resolutionNotes,
+        resolvedByOpsId: params.resolvedByOpsId,
+        resolvedAt: new Date(),
+      },
+    });
 
     return {
       id: updated.id,
@@ -111,8 +92,10 @@ export class FeeVarianceService {
    * Gets variances for a service request.
    */
   async getVariances(serviceRequestId: string) {
-    // TODO: FeeVariance model does not exist in schema. Stubbed.
-    const variances: FeeVarianceRecord[] = [];
+    const variances = await this.prisma.feeVariance.findMany({
+      where: { serviceRequestId },
+      orderBy: { createdAt: 'desc' },
+    });
 
     return variances.map((v) => ({
       id: v.id,
@@ -131,8 +114,9 @@ export class FeeVarianceService {
    * Gets pending variances for ops dashboard.
    */
   async getPendingVariances(cityId: string) {
-    // TODO: FeeVariance model does not exist in schema. Stubbed.
-    const variances: FeeVarianceRecord[] = [];
-    return variances;
+    return this.prisma.feeVariance.findMany({
+      where: { cityId, status: 'PENDING' },
+      orderBy: { createdAt: 'asc' },
+    });
   }
 }

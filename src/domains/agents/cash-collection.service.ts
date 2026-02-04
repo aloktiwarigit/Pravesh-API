@@ -1,10 +1,6 @@
 // Stories 3-13, 3-14: Cash Collection Service
 // Agent cash receipt creation, deposit tracking, reconciliation support.
 // All amounts stored as paise integers (string for BigInt support).
-//
-// NOTE: The code references Prisma models (cashReceipt, cashDeposit, serviceRequest)
-// that do not yet exist in the schema. Prisma calls are cast through `any`
-// to unblock the build until the schema is updated.
 
 import { PrismaClient } from '@prisma/client';
 import PgBoss from 'pg-boss';
@@ -42,13 +38,10 @@ export interface DepositRecordPayload {
   gpsLng: number;
 }
 
-// Helper to access prisma models that may not yet exist in the generated client
-const db = (prisma: PrismaClient | any) => prisma as any;
-
 export class CashCollectionService {
   constructor(
     private prisma: PrismaClient,
-    private boss: any, // PgBoss instance - namespace import cannot be used as type
+    private boss: any, // PgBoss instance
   ) {}
 
   /**
@@ -56,7 +49,7 @@ export class CashCollectionService {
    */
   async createReceipt(payload: CashReceiptCreatePayload) {
     // Idempotency: check by receiptId (pre-allocated UUID)
-    const existing = await db(this.prisma).cashReceipt.findUnique({
+    const existing = await this.prisma.cashReceipt.findUnique({
       where: { receiptId: payload.receiptId },
     });
 
@@ -64,7 +57,7 @@ export class CashCollectionService {
       return { alreadyProcessed: true, receipt: existing };
     }
 
-    const receipt = await db(this.prisma).cashReceipt.create({
+    const receipt = await this.prisma.cashReceipt.create({
       data: {
         receiptId: payload.receiptId,
         taskId: payload.taskId,
@@ -84,8 +77,7 @@ export class CashCollectionService {
     });
 
     // Update service request payment status
-    // TODO: serviceRequest model does not exist in schema yet
-    await db(this.prisma).serviceRequest.update({
+    await this.prisma.serviceRequest.update({
       where: { id: payload.serviceRequestId },
       data: {
         paymentMethod: 'cash',
@@ -100,7 +92,7 @@ export class CashCollectionService {
       agentId: payload.agentId,
       amountPaise: payload.amountPaise,
       cityId: payload.cityId,
-    } as any);
+    });
 
     return { alreadyProcessed: false, receipt };
   }
@@ -126,7 +118,7 @@ export class CashCollectionService {
       where.isReconciled = options.isReconciled;
     }
 
-    const receipts = await db(this.prisma).cashReceipt.findMany({
+    const receipts = await this.prisma.cashReceipt.findMany({
       where,
       take: (limit ?? 20) + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
@@ -140,7 +132,7 @@ export class CashCollectionService {
    * Get agent's outstanding (unreconciled) cash balance.
    */
   async getAgentCashBalance(agentId: string) {
-    const unreconciled = await db(this.prisma).cashReceipt.findMany({
+    const unreconciled = await this.prisma.cashReceipt.findMany({
       where: { agentId, isReconciled: false },
       select: { amountPaise: true },
     });
@@ -162,9 +154,9 @@ export class CashCollectionService {
    */
   async recordDeposit(payload: DepositRecordPayload) {
     // All validation + writes inside one transaction to prevent double-spend
-    const deposit = await this.prisma.$transaction(async (tx: any) => {
+    const deposit = await this.prisma.$transaction(async (tx) => {
       // Verify all receipts belong to this agent and are unreconciled (inside tx)
-      const receipts = await db(tx).cashReceipt.findMany({
+      const receipts = await tx.cashReceipt.findMany({
         where: {
           receiptId: { in: payload.receiptIds },
           agentId: payload.agentId,
@@ -186,7 +178,7 @@ export class CashCollectionService {
 
       // Verify deposit amount matches receipt total
       const receiptTotal = receipts.reduce(
-        (sum: bigint, r: any) => sum + BigInt(r.amountPaise),
+        (sum: bigint, r) => sum + BigInt(r.amountPaise),
         BigInt(0),
       );
 
@@ -202,7 +194,7 @@ export class CashCollectionService {
         );
       }
 
-      const dep = await db(tx).cashDeposit.create({
+      const dep = await tx.cashDeposit.create({
         data: {
           agentId: payload.agentId,
           amountPaise: payload.depositAmountPaise,
@@ -213,11 +205,12 @@ export class CashCollectionService {
           gpsLat: payload.gpsLat,
           gpsLng: payload.gpsLng,
           status: 'pending_verification',
+          cityId: receipts[0].cityId,
         },
       });
 
       // Mark receipts as reconciled with WHERE isReconciled=false to prevent double-spend
-      const updateResult = await db(tx).cashReceipt.updateMany({
+      const updateResult = await tx.cashReceipt.updateMany({
         where: {
           receiptId: { in: payload.receiptIds },
           isReconciled: false, // Guard: only update if still unreconciled
@@ -251,7 +244,7 @@ export class CashCollectionService {
       agentId: payload.agentId,
       depositId: deposit.id,
       amountPaise: payload.depositAmountPaise,
-    } as any);
+    });
 
     return deposit;
   }
@@ -265,7 +258,7 @@ export class CashCollectionService {
     approved: boolean,
     notes?: string,
   ) {
-    const deposit = await db(this.prisma).cashDeposit.findUnique({
+    const deposit = await this.prisma.cashDeposit.findUnique({
       where: { id: depositId },
     });
 
@@ -285,7 +278,7 @@ export class CashCollectionService {
       );
     }
 
-    const updated = await db(this.prisma).cashDeposit.update({
+    const updated = await this.prisma.cashDeposit.update({
       where: { id: depositId },
       data: {
         status: approved ? 'verified' : 'rejected',
@@ -297,7 +290,7 @@ export class CashCollectionService {
 
     // If rejected, un-reconcile the receipts
     if (!approved) {
-      await db(this.prisma).cashReceipt.updateMany({
+      await this.prisma.cashReceipt.updateMany({
         where: { depositId },
         data: {
           isReconciled: false,

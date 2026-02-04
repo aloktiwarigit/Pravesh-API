@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { AgentManagementService } from './agent-management.service';
 import { authorize } from '../../middleware/authorize';
+import { cityScope, cityScopeByEntity } from '../../middleware/city-scope';
 
 const createAgentSchema = z.object({
   userId: z.string(),
@@ -23,6 +24,12 @@ const updateAgentSchema = z.object({
   maxConcurrentTasks: z.number().int().min(1).max(50).optional(),
 });
 
+const agentCityLookup = (service: AgentManagementService) =>
+  async (entityId: string) => {
+    const agent = await service.getAgent(entityId);
+    return agent?.cityId;
+  };
+
 export function createAgentManagementController(service: AgentManagementService): Router {
   const router = Router();
 
@@ -30,6 +37,7 @@ export function createAgentManagementController(service: AgentManagementService)
   router.post(
     '/',
     authorize('franchise_owner', 'super_admin'),
+    cityScope({ bodyField: 'cityId' }),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = createAgentSchema.parse(req.body);
@@ -45,6 +53,7 @@ export function createAgentManagementController(service: AgentManagementService)
   router.get(
     '/:cityId',
     authorize('franchise_owner', 'super_admin', 'ops'),
+    cityScope(),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const isActive = req.query.isActive !== undefined
@@ -62,6 +71,7 @@ export function createAgentManagementController(service: AgentManagementService)
   router.get(
     '/detail/:id',
     authorize('franchise_owner', 'super_admin', 'ops'),
+    cityScopeByEntity(agentCityLookup(service)),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const agent = await service.getAgent(req.params.id);
@@ -76,6 +86,7 @@ export function createAgentManagementController(service: AgentManagementService)
   router.put(
     '/:id',
     authorize('franchise_owner', 'super_admin'),
+    cityScopeByEntity(agentCityLookup(service)),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = updateAgentSchema.parse(req.body);
@@ -91,6 +102,7 @@ export function createAgentManagementController(service: AgentManagementService)
   router.patch(
     '/:id/activate',
     authorize('franchise_owner', 'super_admin'),
+    cityScopeByEntity(agentCityLookup(service)),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const agent = await service.activateAgent(req.params.id);
@@ -105,6 +117,7 @@ export function createAgentManagementController(service: AgentManagementService)
   router.patch(
     '/:id/deactivate',
     authorize('franchise_owner', 'super_admin'),
+    cityScopeByEntity(agentCityLookup(service)),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const agent = await service.deactivateAgent(req.params.id);
@@ -119,6 +132,7 @@ export function createAgentManagementController(service: AgentManagementService)
   router.patch(
     '/:id/training-completed',
     authorize('franchise_owner', 'super_admin'),
+    cityScopeByEntity(agentCityLookup(service)),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const agent = await service.markTrainingCompleted(req.params.id);

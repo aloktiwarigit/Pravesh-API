@@ -2,30 +2,16 @@
  * Dynamic pricing engine based on property value slabs.
  *
  * Story 4.4: Dynamic Pricing by Property Value Slabs
- *
- * TODO: PricingSlab, PricingCalculation, and Service models do not exist
- * in the Prisma schema yet. All prisma calls are stubbed until these models are added.
  */
 import { PrismaClient } from '@prisma/client';
 import { AppError } from '../../core/errors/app-error.js';
-
-interface PricingSlabRecord {
-  id: string;
-  serviceId: string;
-  cityId: string;
-  slabName: string;
-  propertyValueMinPaise: number;
-  propertyValueMaxPaise: number;
-  serviceFeePaise: number;
-  isActive: boolean;
-}
 
 export class PricingService {
   constructor(private readonly prisma: PrismaClient) {}
 
   /**
    * Looks up the service fee based on property value slab.
-   * Falls back to base fee from the service if no slab matches.
+   * Falls back to base fee from the service definition if no slab matches.
    *
    * Story 4.4 AC1, AC2
    */
@@ -39,9 +25,16 @@ export class PricingService {
     slabName: string | null;
     isBaseFee: boolean;
   }> {
-    // TODO: PricingSlab model does not exist in schema. Stubbed with defaults.
-    // In production, query pricingSlab here.
-    const slab = null as PricingSlabRecord | null;
+    // Look up matching slab by property value range
+    const slab = await this.prisma.pricingSlab.findFirst({
+      where: {
+        serviceDefinitionId: params.serviceId,
+        cityId: params.cityId,
+        isActive: true,
+        propertyValueMinPaise: { lte: BigInt(params.propertyValuePaise) },
+        propertyValueMaxPaise: { gte: BigInt(params.propertyValuePaise) },
+      },
+    });
 
     if (slab) {
       await this.logPricingCalculation({
@@ -61,17 +54,51 @@ export class PricingService {
       };
     }
 
-    // TODO: Service model does not exist in schema. Use ServiceDefinition if applicable.
-    // Stubbed: throw not found since we cannot look up base fee.
-    throw new AppError('SERVICE_NOT_FOUND', 'Service or pricing slab not found', 404);
+    // Fallback: look up base fee from ServiceDefinition
+    const serviceDefinition = await this.prisma.serviceDefinition.findUnique({
+      where: { id: params.serviceId },
+    });
+
+    if (!serviceDefinition) {
+      throw new AppError('SERVICE_NOT_FOUND', 'Service or pricing slab not found', 404);
+    }
+
+    const definition = serviceDefinition.definition as any;
+    const baseFee = definition?.estimatedFees?.serviceFeeBasePaise;
+
+    if (!baseFee) {
+      throw new AppError('SERVICE_NOT_FOUND', 'No pricing slab or base fee configured', 404);
+    }
+
+    await this.logPricingCalculation({
+      serviceId: params.serviceId,
+      propertyValuePaise: params.propertyValuePaise,
+      cityId: params.cityId,
+      slabId: null,
+      resultFeePaise: baseFee,
+      isBaseFee: true,
+    });
+
+    return {
+      serviceFeePaise: baseFee,
+      slabId: null,
+      slabName: null,
+      isBaseFee: true,
+    };
   }
 
   /**
    * Gets all pricing slabs for a service in a city.
    */
   async getSlabs(serviceId: string, cityId: string) {
-    // TODO: PricingSlab model does not exist in schema. Stubbed.
-    const slabs: PricingSlabRecord[] = [];
+    const slabs = await this.prisma.pricingSlab.findMany({
+      where: {
+        serviceDefinitionId: serviceId,
+        cityId,
+        isActive: true,
+      },
+      orderBy: { propertyValueMinPaise: 'asc' },
+    });
 
     return slabs.map((s) => ({
       id: s.id,
@@ -82,7 +109,7 @@ export class PricingService {
     }));
   }
 
-  private async logPricingCalculation(_params: {
+  private async logPricingCalculation(params: {
     serviceId: string;
     propertyValuePaise: number;
     cityId: string;
@@ -90,6 +117,15 @@ export class PricingService {
     resultFeePaise: number;
     isBaseFee: boolean;
   }) {
-    // TODO: PricingCalculation model does not exist in schema. Stubbed.
+    await this.prisma.pricingCalculation.create({
+      data: {
+        serviceDefinitionId: params.serviceId,
+        propertyValuePaise: BigInt(params.propertyValuePaise),
+        cityId: params.cityId,
+        slabId: params.slabId,
+        resultFeePaise: params.resultFeePaise,
+        isBaseFee: params.isBaseFee,
+      },
+    });
   }
 }

@@ -1,10 +1,6 @@
 // Stories 3-5, 3-10a/b/c, 3-19: Checklist Service
 // Guided checklists for agent field operations. Each service type has
 // a checklist template; agents mark steps, upload photos, capture GPS.
-//
-// NOTE: The code references Prisma models (checklist, checklistProgress, syncLog)
-// that do not yet exist in the schema. Prisma calls are cast through `any`
-// to unblock the build until the schema is updated.
 
 import { PrismaClient } from '@prisma/client';
 import PgBoss from 'pg-boss';
@@ -40,13 +36,10 @@ export interface ChecklistStepCompletion {
   idempotencyKey?: string;
 }
 
-// Helper to access prisma models that may not yet exist in the generated client
-const db = (prisma: PrismaClient) => prisma as any;
-
 export class ChecklistService {
   constructor(
     private prisma: PrismaClient,
-    private boss: any, // PgBoss instance - namespace import cannot be used as type
+    private boss: any, // PgBoss instance
   ) {}
 
   /**
@@ -92,8 +85,7 @@ export class ChecklistService {
     }
 
     // Check if already initialized
-    // TODO: checklistProgress model does not exist in schema yet
-    const existing = await db(this.prisma).checklistProgress.findFirst({
+    const existing = await this.prisma.checklist.findUnique({
       where: { taskId },
     });
 
@@ -102,8 +94,7 @@ export class ChecklistService {
     }
 
     // Create checklist record
-    // TODO: checklist model does not exist in schema yet
-    const checklist = await db(this.prisma).checklist.create({
+    const checklist = await this.prisma.checklist.create({
       data: {
         taskId,
         serviceCode,
@@ -127,7 +118,7 @@ export class ChecklistService {
       isCompleted: false,
     }));
 
-    await db(this.prisma).checklistProgress.createMany({ data: stepData });
+    await this.prisma.checklistProgress.createMany({ data: stepData });
 
     return this.getChecklistProgress(taskId);
   }
@@ -136,14 +127,13 @@ export class ChecklistService {
    * Get current checklist progress for a task.
    */
   async getChecklistProgress(taskId: string) {
-    // TODO: checklist model does not exist in schema yet
-    const checklist = await db(this.prisma).checklist.findFirst({
+    const checklist = await this.prisma.checklist.findUnique({
       where: { taskId },
     });
 
     if (!checklist) return null;
 
-    const steps = await db(this.prisma).checklistProgress.findMany({
+    const steps = await this.prisma.checklistProgress.findMany({
       where: { checklistId: checklist.id },
       orderBy: { stepIndex: 'asc' },
     });
@@ -153,9 +143,9 @@ export class ChecklistService {
       taskId,
       serviceCode: checklist.serviceCode,
       totalSteps: checklist.totalSteps,
-      completedSteps: steps.filter((s: any) => s.isCompleted).length,
+      completedSteps: steps.filter((s) => s.isCompleted).length,
       percentComplete: Math.round(
-        (steps.filter((s: any) => s.isCompleted).length / checklist.totalSteps) *
+        (steps.filter((s) => s.isCompleted).length / checklist.totalSteps) *
           100,
       ),
       steps,
@@ -168,8 +158,7 @@ export class ChecklistService {
   async completeStep(completion: ChecklistStepCompletion) {
     // Idempotency
     if (completion.idempotencyKey) {
-      // TODO: syncLog model does not exist in schema yet
-      const existing = await db(this.prisma).syncLog.findFirst({
+      const existing = await this.prisma.syncLog.findUnique({
         where: { idempotencyKey: completion.idempotencyKey },
       });
       if (existing) {
@@ -177,7 +166,7 @@ export class ChecklistService {
       }
     }
 
-    const step = await db(this.prisma).checklistProgress.findFirst({
+    const step = await this.prisma.checklistProgress.findFirst({
       where: {
         checklistId: completion.checklistId,
         stepIndex: completion.stepIndex,
@@ -218,7 +207,7 @@ export class ChecklistService {
     }
 
     // Update step
-    const updatedStep = await db(this.prisma).checklistProgress.update({
+    const updatedStep = await this.prisma.checklistProgress.update({
       where: { id: step.id },
       data: {
         isCompleted: true,
@@ -233,15 +222,15 @@ export class ChecklistService {
     });
 
     // Update checklist completed count
-    const completedCount = await db(this.prisma).checklistProgress.count({
+    const completedCount = await this.prisma.checklistProgress.count({
       where: { checklistId: completion.checklistId, isCompleted: true },
     });
 
-    const checklist = await db(this.prisma).checklist.update({
+    const checklist = await this.prisma.checklist.update({
       where: { id: completion.checklistId },
       data: {
         completedSteps: completedCount,
-        ...(completedCount === (await db(this.prisma).checklist.findUnique({ where: { id: completion.checklistId } }))?.totalSteps
+        ...(completedCount === (await this.prisma.checklist.findUnique({ where: { id: completion.checklistId } }))?.totalSteps
           ? { completedAt: new Date() }
           : {}),
       },
@@ -249,7 +238,7 @@ export class ChecklistService {
 
     // Record sync log for idempotency
     if (completion.idempotencyKey) {
-      await db(this.prisma).syncLog.create({
+      await this.prisma.syncLog.create({
         data: {
           idempotencyKey: completion.idempotencyKey,
           entityType: 'checklist_step',
@@ -266,7 +255,7 @@ export class ChecklistService {
         type: 'checklist_completed',
         taskId: step.taskId,
         checklistId: completion.checklistId,
-      } as any);
+      });
     }
 
     return {
@@ -284,7 +273,7 @@ export class ChecklistService {
    * Undo a checklist step (Ops or agent correction).
    */
   async undoStep(checklistId: string, stepIndex: number, undoneBy: string) {
-    const step = await db(this.prisma).checklistProgress.findFirst({
+    const step = await this.prisma.checklistProgress.findFirst({
       where: { checklistId, stepIndex },
     });
 
@@ -296,7 +285,7 @@ export class ChecklistService {
       );
     }
 
-    await db(this.prisma).checklistProgress.update({
+    await this.prisma.checklistProgress.update({
       where: { id: step.id },
       data: {
         isCompleted: false,
@@ -306,11 +295,11 @@ export class ChecklistService {
       },
     });
 
-    const completedCount = await db(this.prisma).checklistProgress.count({
+    const completedCount = await this.prisma.checklistProgress.count({
       where: { checklistId, isCompleted: true },
     });
 
-    await db(this.prisma).checklist.update({
+    await this.prisma.checklist.update({
       where: { id: checklistId },
       data: { completedSteps: completedCount, completedAt: null },
     });

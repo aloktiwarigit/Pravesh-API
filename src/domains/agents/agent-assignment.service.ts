@@ -1,10 +1,6 @@
 // Story 3-2: Agent Assignment Service
 // Auto-assigns agents to service requests based on scoring (proximity + workload).
 // Supports manual Ops override and re-assignment.
-//
-// NOTE: The code references Prisma models (serviceRequest, agentAssignmentLog)
-// that do not yet exist in the schema. Prisma calls are cast through `any`
-// to unblock the build until the schema is updated.
 
 import { PrismaClient } from '@prisma/client';
 import PgBoss from 'pg-boss';
@@ -32,13 +28,10 @@ export interface AssignmentResult {
   };
 }
 
-// Helper to access prisma models that may not yet exist in the generated client
-const db = (prisma: PrismaClient) => prisma as any;
-
 export class AgentAssignmentService {
   constructor(
     private prisma: PrismaClient,
-    private boss: any, // PgBoss instance - namespace import cannot be used as type
+    private boss: any, // PgBoss instance
   ) {}
 
   /**
@@ -46,9 +39,7 @@ export class AgentAssignmentService {
    * Falls back to Ops alert if no agent is available.
    */
   async autoAssign(request: AssignmentRequest): Promise<AssignmentResult> {
-    // Verify service request exists and is in assignable state
-    // TODO: serviceRequest model does not exist in schema yet
-    const serviceRequest = await db(this.prisma).serviceRequest.findUnique({
+    const serviceRequest = await this.prisma.serviceRequest.findUnique({
       where: { id: request.serviceRequestId },
     });
 
@@ -76,7 +67,7 @@ export class AgentAssignmentService {
         serviceRequestId: request.serviceRequestId,
         cityId: request.cityId,
         reason: scoringResult.reason,
-      } as any);
+      });
 
       throw new BusinessError(
         'BUSINESS_NO_AGENT_AVAILABLE',
@@ -87,20 +78,19 @@ export class AgentAssignmentService {
     }
 
     // Create assignment log
-    // TODO: agentAssignmentLog model does not exist in schema yet
-    const assignment = await db(this.prisma).agentAssignmentLog.create({
+    const assignment = await this.prisma.agentAssignmentLog.create({
       data: {
         serviceRequestId: request.serviceRequestId,
         assignedAgentId: scoringResult.selectedAgentId,
         assignedBy: request.assignedBy,
         assignmentMethod: 'auto',
-        scoringSnapshot: scoringResult as any,
+        scoringSnapshot: JSON.parse(JSON.stringify(scoringResult)),
         cityId: request.cityId,
       },
     });
 
     // Update service request with assigned agent
-    await db(this.prisma).serviceRequest.update({
+    await this.prisma.serviceRequest.update({
       where: { id: request.serviceRequestId },
       data: {
         assignedAgentId: scoringResult.selectedAgentId,
@@ -117,7 +107,7 @@ export class AgentAssignmentService {
         serviceRequestId: request.serviceRequestId,
         assignmentId: assignment.id,
       },
-    } as any);
+    });
 
     return {
       assignmentId: assignment.id,
@@ -158,7 +148,7 @@ export class AgentAssignmentService {
       );
     }
 
-    const assignment = await db(this.prisma).agentAssignmentLog.create({
+    const assignment = await this.prisma.agentAssignmentLog.create({
       data: {
         serviceRequestId: request.serviceRequestId,
         assignedAgentId: request.manualAgentId,
@@ -168,7 +158,7 @@ export class AgentAssignmentService {
       },
     });
 
-    await db(this.prisma).serviceRequest.update({
+    await this.prisma.serviceRequest.update({
       where: { id: request.serviceRequestId },
       data: {
         assignedAgentId: request.manualAgentId,
@@ -184,7 +174,7 @@ export class AgentAssignmentService {
         serviceRequestId: request.serviceRequestId,
         assignmentId: assignment.id,
       },
-    } as any);
+    });
 
     return {
       assignmentId: assignment.id,
@@ -203,7 +193,7 @@ export class AgentAssignmentService {
     reassignedBy: string,
     reason: string,
   ): Promise<AssignmentResult> {
-    const serviceRequest = await db(this.prisma).serviceRequest.findUnique({
+    const serviceRequest = await this.prisma.serviceRequest.findUnique({
       where: { id: serviceRequestId },
     });
 
@@ -217,7 +207,7 @@ export class AgentAssignmentService {
 
     const previousAgentId = serviceRequest.assignedAgentId;
 
-    const assignment = await db(this.prisma).agentAssignmentLog.create({
+    const assignment = await this.prisma.agentAssignmentLog.create({
       data: {
         serviceRequestId,
         assignedAgentId: newAgentId,
@@ -229,7 +219,7 @@ export class AgentAssignmentService {
       },
     });
 
-    await db(this.prisma).serviceRequest.update({
+    await this.prisma.serviceRequest.update({
       where: { id: serviceRequestId },
       data: { assignedAgentId: newAgentId },
     });
@@ -241,7 +231,7 @@ export class AgentAssignmentService {
         userId: previousAgentId,
         channel: 'fcm',
         data: { serviceRequestId, reason },
-      } as any);
+      });
     }
 
     await this.boss.send('notification.send', {
@@ -249,7 +239,7 @@ export class AgentAssignmentService {
       userId: newAgentId,
       channel: 'fcm',
       data: { serviceRequestId, assignmentId: assignment.id },
-    } as any);
+    });
 
     return {
       assignmentId: assignment.id,
@@ -263,7 +253,7 @@ export class AgentAssignmentService {
    * Get assignment history for a service request.
    */
   async getAssignmentHistory(serviceRequestId: string) {
-    return db(this.prisma).agentAssignmentLog.findMany({
+    return this.prisma.agentAssignmentLog.findMany({
       where: { serviceRequestId },
       orderBy: { createdAt: 'desc' },
     });

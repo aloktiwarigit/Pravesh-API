@@ -2,10 +2,6 @@
  * Referral service for code generation, credit earning, and balance management.
  *
  * Story 4.11: Customer Referral Credits - Earn
- *
- * TODO: The models customerReferral, referralConfig, and customerReferralCredit
- * do not exist in the current Prisma schema. These operations are stubbed to
- * return sensible defaults until the schema is extended.
  */
 import { PrismaClient } from '@prisma/client';
 import { nanoid } from 'nanoid';
@@ -19,24 +15,37 @@ export class ReferralService {
    * Code is generated once and reused.
    *
    * Story 4.11 AC1
-   *
-   * TODO: Requires CustomerReferral model in schema.
    */
-  async getOrCreateReferralCode(customerId: string, _tenantId: string): Promise<string> {
-    // TODO: prisma.customerReferral does not exist yet in schema.
-    // Stub: generate a deterministic-ish code based on customerId.
+  async getOrCreateReferralCode(customerId: string, tenantId: string): Promise<string> {
+    const existing = await this.prisma.customerReferral.findUnique({
+      where: { customerId },
+    });
+
+    if (existing) {
+      return existing.referralCode;
+    }
+
     const referralCode = nanoid(10);
-    return referralCode;
+    const referral = await this.prisma.customerReferral.create({
+      data: {
+        customerId,
+        referralCode,
+        cityId: tenantId,
+      },
+    });
+
+    return referral.referralCode;
   }
 
   /**
    * Resolves a referral code to the referrer's customer ID.
-   *
-   * TODO: Requires CustomerReferral model in schema.
    */
-  async resolveReferrer(_referralCode: string): Promise<string | null> {
-    // TODO: prisma.customerReferral does not exist yet in schema.
-    return null;
+  async resolveReferrer(referralCode: string): Promise<string | null> {
+    const referral = await this.prisma.customerReferral.findUnique({
+      where: { referralCode },
+    });
+
+    return referral?.customerId ?? null;
   }
 
   /**
@@ -44,38 +53,106 @@ export class ReferralService {
    * Prevents duplicate credits for the same referred customer.
    *
    * Story 4.11 AC3
-   *
-   * TODO: Requires ReferralConfig and CustomerReferralCredit models in schema.
    */
   async creditReferrer(
-    _referrerCustomerId: string,
-    _referredCustomerId: string,
-    _serviceRequestId: string,
-    _tenantId: string,
+    referrerCustomerId: string,
+    referredCustomerId: string,
+    serviceRequestId: string,
+    tenantId: string,
   ): Promise<bigint> {
-    // TODO: prisma.referralConfig and prisma.customerReferralCredit do not exist yet.
-    return 0n;
+    // Check for existing credit to prevent duplicates
+    const existingCredit = await this.prisma.customerReferralCredit.findUnique({
+      where: {
+        referrerCustomerId_referredCustomerId: {
+          referrerCustomerId,
+          referredCustomerId,
+        },
+      },
+    });
+
+    if (existingCredit) {
+      return BigInt(existingCredit.creditAmountPaise);
+    }
+
+    // Look up referral config for credit amount (use 'default' tier if no specific match)
+    const config = await this.prisma.referralConfig.findFirst({
+      where: { isActive: true },
+      orderBy: { tier: 'asc' },
+    });
+
+    if (!config) {
+      return 0n;
+    }
+
+    // Create credit record
+    const credit = await this.prisma.customerReferralCredit.create({
+      data: {
+        referrerCustomerId,
+        referredCustomerId,
+        serviceRequestId,
+        creditAmountPaise: config.creditAmountPaise,
+        cityId: tenantId,
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year expiry
+      },
+    });
+
+    // Update referral count
+    await this.prisma.customerReferral.update({
+      where: { customerId: referrerCustomerId },
+      data: { referralCount: { increment: 1 } },
+    });
+
+    return BigInt(credit.creditAmountPaise);
   }
 
   /**
    * Gets the available credit balance for a customer.
-   * Balance = sum(creditAmount) - sum(usedAmount)
+   * Balance = sum(creditAmount) - sum(usedAmount) for non-expired credits
    *
-   * TODO: Requires CustomerReferralCredit model in schema.
+   * Story 4.11 AC6
    */
-  async getCreditBalance(_customerId: string): Promise<bigint> {
-    // TODO: prisma.customerReferralCredit does not exist yet.
-    return 0n;
+  async getCreditBalance(customerId: string): Promise<bigint> {
+    const credits = await this.prisma.customerReferralCredit.findMany({
+      where: {
+        referrerCustomerId: customerId,
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } },
+        ],
+      },
+      select: {
+        creditAmountPaise: true,
+        usedAmountPaise: true,
+      },
+    });
+
+    const balance = credits.reduce(
+      (sum, c) => sum + BigInt(c.creditAmountPaise) - BigInt(c.usedAmountPaise),
+      0n,
+    );
+
+    return balance;
   }
 
   /**
    * Gets credit history with pagination.
    * Story 4.11 AC6
-   *
-   * TODO: Requires CustomerReferralCredit model in schema.
    */
-  async getCreditHistory(_customerId: string, _page: number, _limit: number) {
-    // TODO: prisma.customerReferralCredit does not exist yet.
-    return { credits: [] as any[], total: 0 };
+  async getCreditHistory(customerId: string, page: number, limit: number) {
+    const skip = (page - 1) * limit;
+
+    const [credits, total] = await Promise.all([
+      this.prisma.customerReferralCredit.findMany({
+        where: { referrerCustomerId: customerId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.customerReferralCredit.count({
+        where: { referrerCustomerId: customerId },
+      }),
+    ]);
+
+    return { credits, total };
   }
 }

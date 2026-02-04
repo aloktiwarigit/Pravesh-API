@@ -30,10 +30,19 @@ export class ReconciliationService {
 
     const totalPaymentsPaise = payments.reduce((sum, p) => sum + p.amountPaise, 0);
 
-    // TODO: CashReceipt model does not exist in schema yet.
-    // Stubbed: returning zero cash receipts until the model is added.
-    const totalCashReceiptsPaise = 0;
-    const receiptCount = 0;
+    // Get all cash receipts for the day
+    const cashReceipts = await this.prisma.cashReceipt.findMany({
+      where: {
+        cityId,
+        createdAt: { gte: startOfDay, lte: endOfDay },
+      },
+      select: { amountPaise: true },
+    });
+
+    const totalCashReceiptsPaise = cashReceipts.reduce(
+      (sum, r) => sum + Number(r.amountPaise),
+      0,
+    );
 
     const discrepancyPaise = totalPaymentsPaise - totalCashReceiptsPaise;
 
@@ -43,18 +52,19 @@ export class ReconciliationService {
         ? 'SHORTAGE'
         : 'EXCESS';
 
-    // TODO: CashReconciliationLog model does not exist in schema yet.
-    // Stubbed: returning a synthetic log object until the model is added.
-    const log = {
-      id: crypto.randomUUID(),
-      reconciliationDate: startOfDay,
-      totalPaymentsPaise,
-      totalCashReceiptsPaise,
-      discrepancyPaise,
-      status,
-      paymentCount: payments.length,
-      receiptCount,
-    };
+    // Create reconciliation log
+    const log = await this.prisma.cashReconciliationLog.create({
+      data: {
+        cityId,
+        reconciliationDate: startOfDay,
+        totalPaymentsPaise,
+        totalCashReceiptsPaise,
+        discrepancyPaise,
+        status,
+        paymentCount: payments.length,
+        receiptCount: cashReceipts.length,
+      },
+    });
 
     return {
       id: log.id,
@@ -72,18 +82,13 @@ export class ReconciliationService {
    * Gets reconciliation logs for a date range.
    */
   async getReconciliationLogs(cityId: string, startDate: Date, endDate: Date) {
-    // TODO: CashReconciliationLog model does not exist in schema yet.
-    // Stubbed: returning empty array until the model is added.
-    const logs: Array<{
-      id: string;
-      reconciliationDate: Date;
-      totalPaymentsPaise: number;
-      totalCashReceiptsPaise: number;
-      discrepancyPaise: number;
-      status: string;
-      paymentCount: number;
-      receiptCount: number;
-    }> = [];
+    const logs = await this.prisma.cashReconciliationLog.findMany({
+      where: {
+        cityId,
+        reconciliationDate: { gte: startDate, lte: endDate },
+      },
+      orderBy: { reconciliationDate: 'desc' },
+    });
 
     return logs.map((l) => ({
       id: l.id,

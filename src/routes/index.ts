@@ -45,6 +45,13 @@ import { createUserController } from '../domains/user/user.controller';
 import { createDealerController } from '../domains/dealers/dealers.controller';
 import { createCommissionController } from '../domains/dealers/commissions.controller';
 
+// Ratings domain (FR19-FR20)
+import { RatingService } from '../domains/ratings/rating.service';
+import { createRatingController } from '../domains/ratings/rating.controller';
+
+// Service catalog (FR8-FR10)
+import { createServiceCatalogController } from '../domains/services/service-catalog.controller';
+
 // Middleware
 import { authenticate } from '../middleware/authenticate';
 import { scope } from '../middleware/scope';
@@ -148,6 +155,17 @@ export function createApiRouter(services: ServiceContainer, prismaInstance?: Pri
   // Epic 11: Builder Portal & Bulk Services (Stories 11-1 through 11-10)
   if (prismaInstance) {
     router.use('/builders', createBuildersController(prismaInstance));
+  }
+
+  // FR19-FR20: Service Ratings
+  if (prismaInstance) {
+    const ratingService = new RatingService(prismaInstance);
+    router.use('/ratings', createRatingController(ratingService));
+  }
+
+  // FR8-FR10: Service Catalog Browsing
+  if (prismaInstance) {
+    router.use('/services/catalog', createServiceCatalogController(prismaInstance));
   }
 
   return router;

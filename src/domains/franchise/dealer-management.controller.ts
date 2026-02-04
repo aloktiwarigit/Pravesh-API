@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { DealerManagementService } from './dealer-management.service';
 import { dealerTierConfigSchema } from './franchise.types';
 import { authorize } from '../../middleware/authorize';
+import { cityScope, cityScopeByEntity } from '../../middleware/city-scope';
 
 const createDealerSchema = z.object({
   userId: z.string(),
@@ -13,6 +14,12 @@ const createDealerSchema = z.object({
   kycDocuments: z.record(z.string(), z.any()).optional(),
 });
 
+const dealerCityLookup = (service: DealerManagementService) =>
+  async (entityId: string) => {
+    const dealer = await service.getDealer(entityId);
+    return dealer?.cityId;
+  };
+
 export function createDealerManagementController(service: DealerManagementService): Router {
   const router = Router();
 
@@ -20,6 +27,7 @@ export function createDealerManagementController(service: DealerManagementServic
   router.post(
     '/',
     authorize('franchise_owner', 'super_admin'),
+    cityScope({ bodyField: 'cityId' }),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = createDealerSchema.parse(req.body);
@@ -35,6 +43,7 @@ export function createDealerManagementController(service: DealerManagementServic
   router.get(
     '/:cityId',
     authorize('franchise_owner', 'super_admin'),
+    cityScope(),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const dealers = await service.listDealers(req.params.cityId, {
@@ -53,6 +62,7 @@ export function createDealerManagementController(service: DealerManagementServic
   router.get(
     '/detail/:id',
     authorize('franchise_owner', 'super_admin'),
+    cityScopeByEntity(dealerCityLookup(service)),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const dealer = await service.getDealer(req.params.id);
@@ -67,6 +77,7 @@ export function createDealerManagementController(service: DealerManagementServic
   router.patch(
     '/:id/kyc',
     authorize('franchise_owner', 'super_admin'),
+    cityScopeByEntity(dealerCityLookup(service)),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = z.object({
@@ -85,6 +96,7 @@ export function createDealerManagementController(service: DealerManagementServic
   router.patch(
     '/:id/tier',
     authorize('franchise_owner', 'super_admin'),
+    cityScopeByEntity(dealerCityLookup(service)),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = z.object({ tier: z.enum(['BRONZE', 'SILVER', 'GOLD']) }).parse(req.body);
@@ -100,6 +112,7 @@ export function createDealerManagementController(service: DealerManagementServic
   router.put(
     '/:id/tier-config',
     authorize('franchise_owner', 'super_admin'),
+    cityScopeByEntity(dealerCityLookup(service)),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = z.object({ tierConfig: dealerTierConfigSchema }).parse(req.body);
@@ -115,6 +128,7 @@ export function createDealerManagementController(service: DealerManagementServic
   router.patch(
     '/:id/deactivate',
     authorize('franchise_owner', 'super_admin'),
+    cityScopeByEntity(dealerCityLookup(service)),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = z.object({ reason: z.string().min(5) }).parse(req.body);
@@ -130,6 +144,7 @@ export function createDealerManagementController(service: DealerManagementServic
   router.patch(
     '/:id/activate',
     authorize('franchise_owner', 'super_admin'),
+    cityScopeByEntity(dealerCityLookup(service)),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const dealer = await service.activateDealer(req.params.id);

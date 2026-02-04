@@ -82,6 +82,17 @@ model City {
   serviceInstances         ServiceInstance[]
   escalations              Escalation[]
   disruptions              Disruption[]
+  serviceRequests          ServiceRequest[]
+  cashReceipts             CashReceipt[]
+  cashDeposits             CashDeposit[]
+  cashReconciliationLogs   CashReconciliationLog[]
+  pricingSlabs             PricingSlab[]
+  pricingCalculations      PricingCalculation[]
+  serviceRatings           ServiceRating[]
+  customerReferrals        CustomerReferral[]
+  customerReferralCredits  CustomerReferralCredit[]
+  feeVariances             FeeVariance[]
+  agentAssignmentLogs      AgentAssignmentLog[]
 
   @@unique([cityName, state])
   @@index([activeStatus])
@@ -2374,15 +2385,22 @@ model ServiceInstance {
   slaDeadline         DateTime? @map("sla_deadline")
   slaPausedAt         DateTime? @map("sla_paused_at")
   slaPausedDuration   Int       @default(0) @map("sla_paused_duration") // in minutes
+  propertyAddress     String?   @map("property_address")
+  propertyType        String?   @map("property_type") // residential, commercial, agricultural, plot
+  propertyValuePaise  BigInt?   @map("property_value_paise")
+  propertyCity        String?   @map("property_city")
+  propertyLocality    String?   @map("property_locality")
   metadata            Json?     @db.JsonB
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  serviceDefinition   ServiceDefinition       @relation(fields: [serviceDefinitionId], references: [id])
-  city                City                    @relation(fields: [cityId], references: [id])
-  stateHistory        ServiceStateHistory[]
-  communications      ServiceCommunication[]
-  escalations         Escalation[]
+  serviceDefinition    ServiceDefinition       @relation(fields: [serviceDefinitionId], references: [id])
+  city                 City                    @relation(fields: [cityId], references: [id])
+  stateHistory         ServiceStateHistory[]
+  communications       ServiceCommunication[]
+  escalations          Escalation[]
+  serviceRequests      ServiceRequest[]
+  serviceRatings       ServiceRating[]
 
   @@index([customerId])
   @@index([assignedAgentId])
@@ -2457,4 +2475,355 @@ model Disruption {
   @@index([status], name: "idx_disruptions_status")
   @@index([cityId], name: "idx_disruptions_city")
   @@map("disruptions")
+}
+
+// ============================================================
+// EPIC 3/4: Missing Models — Service Requests, Cash, Pricing,
+// Checklists, Ratings, Referrals, Fee Variance
+// ============================================================
+
+// Story 3-2: Service Requests — customer-initiated service request
+model ServiceRequest {
+  id                  String    @id @default(uuid())
+  serviceInstanceId   String    @map("service_instance_id")
+  serviceCode         String?   @map("service_code")
+  customerId          String    @map("customer_id")
+  assignedAgentId     String?   @map("assigned_agent_id")
+  status              String    @default("pending") // pending, assigned, in_progress, completed, cancelled
+  paymentMethod       String?   @map("payment_method") // cash, online, wire_transfer
+  paymentStatus       String?   @map("payment_status") // pending, collected, verified, failed
+  cashReceiptId       String?   @map("cash_receipt_id")
+  cityId              String    @map("city_id")
+  metadata            Json?     @db.JsonB
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  serviceInstance     ServiceInstance      @relation(fields: [serviceInstanceId], references: [id])
+  city                City                 @relation(fields: [cityId], references: [id])
+  assignmentLogs      AgentAssignmentLog[]
+  cashReceipts        CashReceipt[]
+  feeVariances        FeeVariance[]
+  checklists          Checklist[]
+
+  @@index([serviceInstanceId])
+  @@index([customerId])
+  @@index([assignedAgentId])
+  @@index([status])
+  @@index([cityId])
+  @@map("service_requests")
+}
+
+// Story 3-2: Agent Assignment Log — full assignment history
+model AgentAssignmentLog {
+  id                  String   @id @default(uuid())
+  serviceRequestId    String   @map("service_request_id")
+  assignedAgentId     String   @map("assigned_agent_id")
+  previousAgentId     String?  @map("previous_agent_id")
+  assignedBy          String   @map("assigned_by")
+  assignmentMethod    String   @map("assignment_method") // auto, manual
+  scoringSnapshot     Json?    @map("scoring_snapshot") @db.JsonB
+  reason              String?
+  cityId              String   @map("city_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  serviceRequest      ServiceRequest @relation(fields: [serviceRequestId], references: [id])
+  city                City           @relation(fields: [cityId], references: [id])
+
+  @@index([serviceRequestId])
+  @@index([assignedAgentId])
+  @@index([cityId])
+  @@map("agent_assignment_logs")
+}
+
+// Stories 3-5, 3-10: Checklist — agent field operation checklist
+model Checklist {
+  id                  String    @id @default(uuid())
+  taskId              String    @map("task_id")
+  serviceRequestId    String?   @map("service_request_id")
+  serviceCode         String    @map("service_code")
+  totalSteps          Int       @map("total_steps")
+  completedSteps      Int       @default(0) @map("completed_steps")
+  templateSnapshot    Json      @map("template_snapshot") @db.JsonB
+  completedAt         DateTime? @map("completed_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  serviceRequest      ServiceRequest?    @relation(fields: [serviceRequestId], references: [id])
+  steps               ChecklistProgress[]
+
+  @@unique([taskId])
+  @@index([serviceCode])
+  @@map("checklists")
+}
+
+// Stories 3-5, 3-10: Checklist Progress — per-step completion tracking
+model ChecklistProgress {
+  id                  String    @id @default(uuid())
+  checklistId         String    @map("checklist_id")
+  taskId              String    @map("task_id")
+  stepIndex           Int       @map("step_index")
+  title               String
+  titleHi             String    @map("title_hi")
+  requiresPhoto       Boolean   @default(false) @map("requires_photo")
+  requiresGps         Boolean   @default(false) @map("requires_gps")
+  requiresDocument    Boolean   @default(false) @map("requires_document")
+  isMandatory         Boolean   @default(true) @map("is_mandatory")
+  isCompleted         Boolean   @default(false) @map("is_completed")
+  completedAt         DateTime? @map("completed_at")
+  completedBy         String?   @map("completed_by")
+  gpsLat              Float?    @map("gps_lat")
+  gpsLng              Float?    @map("gps_lng")
+  photoUrls           String[]  @map("photo_urls")
+  documentId          String?   @map("document_id")
+  notes               String?   @db.Text
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  checklist           Checklist @relation(fields: [checklistId], references: [id])
+
+  @@unique([checklistId, stepIndex])
+  @@index([taskId])
+  @@index([checklistId])
+  @@map("checklist_progress")
+}
+
+// Story 3-19: Sync Log — idempotency for offline sync
+model SyncLog {
+  id                  String    @id @default(uuid())
+  idempotencyKey      String    @unique @map("idempotency_key")
+  entityType          String    @map("entity_type") // checklist_step, cash_receipt, etc.
+  agentId             String    @map("agent_id")
+  processedAt         DateTime  @map("processed_at")
+  clientTimestamp      DateTime  @map("client_timestamp")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  @@index([agentId])
+  @@map("sync_logs")
+}
+
+// Stories 3-13, 3-14: Cash Receipt — agent cash collection tracking
+model CashReceipt {
+  id                  String    @id @default(uuid())
+  receiptId           String    @unique @map("receipt_id") // Pre-allocated UUID from client
+  taskId              String    @map("task_id")
+  serviceRequestId    String    @map("service_request_id")
+  amountPaise         String    @map("amount_paise") // BigInt as string
+  customerName        String    @map("customer_name")
+  serviceName         String    @map("service_name")
+  agentId             String    @map("agent_id")
+  gpsLat              Float     @map("gps_lat")
+  gpsLng              Float     @map("gps_lng")
+  signatureHash       String    @map("signature_hash")
+  pdfUrl              String?   @map("pdf_url")
+  cityId              String    @map("city_id")
+  clientTimestamp      DateTime  @map("client_timestamp")
+  isReconciled        Boolean   @default(false) @map("is_reconciled")
+  depositId           String?   @map("deposit_id")
+  reconciledAt        DateTime? @map("reconciled_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  serviceRequest      ServiceRequest @relation(fields: [serviceRequestId], references: [id])
+  city                City           @relation(fields: [cityId], references: [id])
+  deposit             CashDeposit?   @relation(fields: [depositId], references: [id])
+
+  @@index([agentId])
+  @@index([serviceRequestId])
+  @@index([cityId])
+  @@index([isReconciled])
+  @@map("cash_receipts")
+}
+
+// Stories 3-13, 3-14: Cash Deposit — agent deposit tracking
+model CashDeposit {
+  id                  String    @id @default(uuid())
+  agentId             String    @map("agent_id")
+  amountPaise         String    @map("amount_paise") // BigInt as string
+  receiptCount        Int       @map("receipt_count")
+  depositMethod       String    @map("deposit_method") // bank_deposit, office_handover
+  depositReference    String?   @map("deposit_reference")
+  depositPhotoUrl     String?   @map("deposit_photo_url")
+  gpsLat              Float     @map("gps_lat")
+  gpsLng              Float     @map("gps_lng")
+  status              String    @default("pending_verification") // pending_verification, verified, rejected
+  verifiedBy          String?   @map("verified_by")
+  verifiedAt          DateTime? @map("verified_at")
+  notes               String?   @db.Text
+  cityId              String    @map("city_id")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  city                City          @relation(fields: [cityId], references: [id])
+  receipts            CashReceipt[]
+
+  @@index([agentId])
+  @@index([status])
+  @@index([cityId])
+  @@map("cash_deposits")
+}
+
+// Story 4.8: Cash Reconciliation Log — daily reconciliation audit
+model CashReconciliationLog {
+  id                      String   @id @default(uuid())
+  cityId                  String   @map("city_id")
+  reconciliationDate      DateTime @map("reconciliation_date")
+  totalPaymentsPaise      Int      @map("total_payments_paise")
+  totalCashReceiptsPaise   Int      @map("total_cash_receipts_paise")
+  discrepancyPaise        Int      @map("discrepancy_paise")
+  status                  String   // MATCHED, SHORTAGE, EXCESS
+  paymentCount            Int      @map("payment_count")
+  receiptCount            Int      @map("receipt_count")
+  reconciledBy            String?  @map("reconciled_by")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  city                    City     @relation(fields: [cityId], references: [id])
+
+  @@index([cityId])
+  @@index([reconciliationDate])
+  @@index([status])
+  @@map("cash_reconciliation_logs")
+}
+
+// Story 4.4: Pricing Slab — dynamic pricing by property value range
+model PricingSlab {
+  id                      String   @id @default(uuid())
+  serviceDefinitionId     String   @map("service_definition_id")
+  cityId                  String   @map("city_id")
+  slabName                String   @map("slab_name")
+  propertyValueMinPaise   BigInt   @map("property_value_min_paise")
+  propertyValueMaxPaise   BigInt   @map("property_value_max_paise")
+  serviceFeePaise         Int      @map("service_fee_paise")
+  isActive                Boolean  @default(true) @map("is_active")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  city                    City     @relation(fields: [cityId], references: [id])
+
+  @@index([serviceDefinitionId, cityId])
+  @@index([isActive])
+  @@map("pricing_slabs")
+}
+
+// Story 4.4: Pricing Calculation — audit log for pricing decisions
+model PricingCalculation {
+  id                      String   @id @default(uuid())
+  serviceDefinitionId     String   @map("service_definition_id")
+  propertyValuePaise      BigInt   @map("property_value_paise")
+  cityId                  String   @map("city_id")
+  slabId                  String?  @map("slab_id")
+  resultFeePaise          Int      @map("result_fee_paise")
+  isBaseFee               Boolean  @map("is_base_fee")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  city                    City     @relation(fields: [cityId], references: [id])
+
+  @@index([serviceDefinitionId])
+  @@index([cityId])
+  @@map("pricing_calculations")
+}
+
+// FR19-FR20: Service Rating — customer ratings for completed services
+model ServiceRating {
+  id                      String    @id @default(uuid())
+  serviceInstanceId       String    @map("service_instance_id")
+  serviceRequestId        String?   @map("service_request_id")
+  customerId              String    @map("customer_id")
+  agentId                 String?   @map("agent_id")
+  rating                  Int       // 1-5 stars
+  reviewText              String?   @map("review_text") @db.VarChar(1000)
+  reviewTextHi            String?   @map("review_text_hi") @db.VarChar(1000)
+  cityId                  String    @map("city_id")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  serviceInstance         ServiceInstance @relation(fields: [serviceInstanceId], references: [id])
+  city                    City            @relation(fields: [cityId], references: [id])
+
+  @@unique([serviceInstanceId, customerId])
+  @@index([customerId])
+  @@index([agentId])
+  @@index([cityId])
+  @@index([rating])
+  @@map("service_ratings")
+}
+
+// Story 4.11: Customer Referral — referral code tracking
+model CustomerReferral {
+  id                      String   @id @default(uuid())
+  customerId              String   @unique @map("customer_id")
+  referralCode            String   @unique @map("referral_code")
+  cityId                  String   @map("city_id")
+  referralCount           Int      @default(0) @map("referral_count")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  city                    City     @relation(fields: [cityId], references: [id])
+  credits                 CustomerReferralCredit[] @relation("ReferrerCredits")
+
+  @@index([cityId])
+  @@map("customer_referrals")
+}
+
+// Story 4.11: Referral Config — credit amounts per tier
+model ReferralConfig {
+  id                      String   @id @default(uuid())
+  tier                    String   @unique // BRONZE, SILVER, GOLD, default
+  creditAmountPaise       Int      @map("credit_amount_paise")
+  isActive                Boolean  @default(true) @map("is_active")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  @@map("referral_configs")
+}
+
+// Story 4.11: Customer Referral Credit — credit ledger
+model CustomerReferralCredit {
+  id                      String    @id @default(uuid())
+  referrerCustomerId      String    @map("referrer_customer_id")
+  referredCustomerId      String    @map("referred_customer_id")
+  serviceRequestId        String?   @map("service_request_id")
+  creditAmountPaise       Int       @map("credit_amount_paise")
+  usedAmountPaise         Int       @default(0) @map("used_amount_paise")
+  expiresAt               DateTime? @map("expires_at")
+  cityId                  String    @map("city_id")
+  createdAt               DateTime  @default(now()) @map("created_at")
+
+  referrerReferral        CustomerReferral @relation("ReferrerCredits", fields: [referrerCustomerId], references: [customerId])
+  city                    City             @relation(fields: [cityId], references: [id])
+
+  @@unique([referrerCustomerId, referredCustomerId])
+  @@index([referrerCustomerId])
+  @@index([referredCustomerId])
+  @@index([cityId])
+  @@index([expiresAt])
+  @@map("customer_referral_credits")
+}
+
+// Story 4.6: Fee Variance — government fee discrepancy tracking
+model FeeVariance {
+  id                      String    @id @default(uuid())
+  serviceRequestId        String    @map("service_request_id")
+  estimatedGovtFeePaise   Int       @map("estimated_govt_fee_paise")
+  actualGovtFeePaise      Int       @map("actual_govt_fee_paise")
+  variancePaise           Int       @map("variance_paise")
+  varianceReasonEn        String    @map("variance_reason_en") @db.Text
+  varianceReasonHi        String    @map("variance_reason_hi") @db.Text
+  reportedByOpsId         String    @map("reported_by_ops_id")
+  status                  String    @default("PENDING") // PENDING, APPROVED, REJECTED, ADJUSTED
+  adjustedAmountPaise     Int?      @map("adjusted_amount_paise")
+  resolutionNotes         String?   @map("resolution_notes") @db.Text
+  resolvedByOpsId         String?   @map("resolved_by_ops_id")
+  resolvedAt              DateTime? @map("resolved_at")
+  evidenceUrls            String[]  @map("evidence_urls")
+  cityId                  String    @map("city_id")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  serviceRequest          ServiceRequest @relation(fields: [serviceRequestId], references: [id])
+  city                    City           @relation(fields: [cityId], references: [id])
+
+  @@index([serviceRequestId])
+  @@index([status])
+  @@index([cityId])
+  @@map("fee_variances")
 }
