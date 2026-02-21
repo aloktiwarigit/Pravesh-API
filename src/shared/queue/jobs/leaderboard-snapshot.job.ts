@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { BadgeService } from '../../../domains/dealers/badges.service';
+import { logger } from '../../utils/logger';
 
 /**
  * Story 9.10: Leaderboard Snapshot Job
@@ -15,7 +16,7 @@ export function createLeaderboardSnapshotHandler(
   badgeService: BadgeService,
 ) {
   return async () => {
-    console.log('[LeaderboardSnapshot] Starting weekly snapshot');
+    logger.info('[LeaderboardSnapshot] Starting weekly snapshot');
 
     try {
       // Get all active cities with dealers
@@ -91,14 +92,14 @@ export function createLeaderboardSnapshotHandler(
         }
       }
 
-      console.log(
-        `[LeaderboardSnapshot] ${totalSnapshots} entries across ${cities.length} cities. ` +
-          `${badgesAwarded} TOP_10 badges awarded.`,
+      logger.info(
+        { totalSnapshots, citiesProcessed: cities.length, badgesAwarded },
+        '[LeaderboardSnapshot] Completed weekly snapshot'
       );
 
       return { totalSnapshots, citiesProcessed: cities.length, badgesAwarded };
     } catch (error) {
-      console.error('[LeaderboardSnapshot] Error:', error);
+      logger.error({ error }, '[LeaderboardSnapshot] Error');
       throw error;
     }
   };

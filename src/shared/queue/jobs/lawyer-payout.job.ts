@@ -1,4 +1,5 @@
 import { LawyerService } from '../../../domains/lawyers/lawyers.service';
+import { logger } from '../../utils/logger';
 
 /**
  * Story 12-8: Lawyer Payout Scheduled Jobs
@@ -13,15 +14,16 @@ export function registerLawyerPayoutJobs(boss: any, lawyerService: LawyerService
   (boss as any).schedule('lawyer-payout.auto-confirm', '0 0 * * *', {});
   (boss as any).work('lawyer-payout.auto-confirm', async () => {
     const result = await lawyerService.autoConfirmPayouts();
-    console.log(`[lawyer-payout.auto-confirm] Auto-confirmed ${result.count} payouts`);
+    logger.info({ count: result.count }, '[lawyer-payout.auto-confirm] Auto-confirmed payouts');
   });
 
   // Payout batch processing: runs on 1st and 15th at 6 AM IST
   (boss as any).schedule('lawyer-payout.process-batch', '0 0 1,15 * *', {});
   (boss as any).work('lawyer-payout.process-batch', async () => {
     const result = await lawyerService.processPayoutBatch();
-    console.log(
-      `[lawyer-payout.process-batch] Processed batch ${result.batchId} with ${result.count} payouts`,
+    logger.info(
+      { batchId: result.batchId, count: result.count },
+      '[lawyer-payout.process-batch] Processed batch'
     );
 
     // In production: enqueue confirmation notifications for each processed payout

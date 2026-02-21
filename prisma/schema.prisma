@@ -2,7 +2,8 @@
 // Multi-tenant architecture with city_id column-based isolation
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -224,6 +225,7 @@ model Franchise {
   city             City               @relation(fields: [cityId], references: [id])
   franchiseRevenues FranchiseRevenue[]
   corporateAudits  CorporateAudit[]
+  territories      FranchiseTerritory[]
 
   @@unique([cityId])
   @@unique([ownerUserId])
@@ -488,19 +490,23 @@ enum BadgeType {
 
 // Story 9.13: Bank Account Management
 model DealerBankAccount {
-  id                     String      @id @default(uuid())
-  dealerId               String      @map("dealer_id")
-  accountHolderName      String      @map("account_holder_name")
-  bankName               String      @map("bank_name")
-  ifscCode               String      @map("ifsc_code")
-  accountNumberMasked    String      @map("account_number_masked")
-  accountNumberEncrypted String      @map("account_number_encrypted")
-  accountType            AccountType @map("account_type")
-  verified               Boolean     @default(false)
-  verificationCode       String?     @map("verification_code")
-  isPrimary              Boolean     @default(false) @map("is_primary")
-  createdAt              DateTime    @default(now()) @map("created_at")
-  updatedAt              DateTime    @updatedAt @map("updated_at")
+  id                       String      @id @default(uuid())
+  dealerId                 String      @map("dealer_id")
+  accountHolderName        String      @map("account_holder_name")
+  bankName                 String      @map("bank_name")
+  ifscCode                 String      @map("ifsc_code")
+  accountNumber            String      @map("account_number") // encrypted
+  accountNumberMasked      String      @map("account_number_masked")
+  accountNumberEncrypted   String      @map("account_number_encrypted")
+  accountType              AccountType @map("account_type")
+  isVerified               Boolean     @default(false) @map("is_verified")
+  verified                 Boolean     @default(false)
+  verificationCode         String?     @map("verification_code")
+  isPrimary                Boolean     @default(false) @map("is_primary")
+  razorpayContactId        String?     @map("razorpay_contact_id")
+  razorpayFundAccountId    String?     @map("razorpay_fund_account_id")
+  createdAt                DateTime    @default(now()) @map("created_at")
+  updatedAt                DateTime    @updatedAt @map("updated_at")
 
   dealer  Dealer         @relation(fields: [dealerId], references: [id])
   payouts DealerPayout[]
@@ -1262,16 +1268,19 @@ model LawyerPayout {
 }
 
 model LawyerBankAccount {
-  id                  String    @id @default(uuid())
-  lawyerId            String    @map("lawyer_id")
-  accountHolderName   String    @map("account_holder_name")
-  accountNumber       String    @map("account_number") // encrypted
-  ifscCode            String    @map("ifsc_code")
-  bankName            String    @map("bank_name")
-  upiId               String?   @map("upi_id")
-  isDefault           Boolean   @default(true) @map("is_default")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  id                      String    @id @default(uuid())
+  lawyerId                String    @map("lawyer_id")
+  accountHolderName       String    @map("account_holder_name")
+  accountNumber           String    @map("account_number") // encrypted
+  ifscCode                String    @map("ifsc_code")
+  bankName                String    @map("bank_name")
+  upiId                   String?   @map("upi_id")
+  isDefault               Boolean   @default(true) @map("is_default")
+  isVerified              Boolean   @default(false) @map("is_verified")
+  razorpayContactId       String?   @map("razorpay_contact_id")
+  razorpayFundAccountId   String?   @map("razorpay_fund_account_id")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
 
   lawyer              Lawyer    @relation(fields: [lawyerId], references: [id])
 
@@ -2492,6 +2501,7 @@ model ServiceRequest {
   status              String    @default("pending") // pending, assigned, in_progress, completed, cancelled
   paymentMethod       String?   @map("payment_method") // cash, online, wire_transfer
   paymentStatus       String?   @map("payment_status") // pending, collected, verified, failed
+  requestNumber       String?   @unique @map("request_number")
   cashReceiptId       String?   @map("cash_receipt_id")
   cityId              String    @map("city_id")
   metadata            Json?     @db.JsonB
@@ -2827,3 +2837,180 @@ model FeeVariance {
   @@index([cityId])
   @@map("fee_variances")
 }
+
+// ============================================================
+// Role Request System (Phase 4)
+// Users can request additional roles; admins approve/reject
+// ============================================================
+
+model RoleRequest {
+  id            String            @id @default(uuid())
+  userId        String            @map("user_id")
+  requestedRole String            @map("requested_role")
+  status        RoleRequestStatus @default(PENDING)
+  notes         String?           @db.Text
+  reviewedBy    String?           @map("reviewed_by")
+  reviewedAt    DateTime?         @map("reviewed_at")
+  reviewNotes   String?           @map("review_notes") @db.Text
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  @@unique([userId, requestedRole, status])
+  @@index([status])
+  @@map("role_requests")
+}
+
+enum RoleRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ============================================================
+// STORY 4.13: Refund Processing
+// ============================================================
+
+model Refund {
+  id                  String       @id @default(uuid())
+  paymentId           String       @map("payment_id")
+  serviceRequestId    String       @map("service_request_id")
+  customerId          String       @map("customer_id")
+  amountPaise         Int          @map("amount_paise")
+  reason              RefundReason
+  reasonText          String?      @map("reason_text") @db.Text
+  status              RefundStatus @default(PENDING)
+  razorpayRefundId    String?      @map("razorpay_refund_id")
+  processedAt         DateTime?    @map("processed_at")
+  failureReason       String?      @map("failure_reason")
+  initiatedBy         String       @map("initiated_by")
+  approvedBy          String?      @map("approved_by")
+  approvedAt          DateTime?    @map("approved_at")
+  cityId              String       @map("city_id")
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+
+  @@index([paymentId])
+  @@index([serviceRequestId])
+  @@index([customerId])
+  @@index([status])
+  @@index([cityId])
+  @@map("refunds")
+}
+
+enum RefundReason {
+  SERVICE_CANCELLED
+  DUPLICATE_PAYMENT
+  SERVICE_NOT_DELIVERED
+  CUSTOMER_DISSATISFACTION
+  OVERCHARGE
+  OTHER
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  COMPLETED
+  FAILED
+  REJECTED
+}
+
+// ============================================================
+// STORY 10.X: Support Ticket System
+// ============================================================
+
+model SupportTicket {
+  id              String            @id @default(uuid())
+  ticketNumber    String            @unique @map("ticket_number")
+  customerId      String            @map("customer_id")
+  serviceId       String?           @map("service_id")
+  category        TicketCategory
+  priority        TicketPriority    @default(NORMAL)
+  status          TicketStatus      @default(OPEN)
+  subject         String
+  description     String            @db.Text
+  assignedTo      String?           @map("assigned_to")
+  cityId          String            @map("city_id")
+  slaDeadline     DateTime?         @map("sla_deadline")
+  resolvedAt      DateTime?         @map("resolved_at")
+  closedAt        DateTime?         @map("closed_at")
+  whatsappThreadId String?          @map("whatsapp_thread_id")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  messages        SupportTicketMessage[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([cityId])
+  @@index([assignedTo])
+  @@index([priority, status])
+  @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id          String   @id @default(uuid())
+  ticketId    String   @map("ticket_id")
+  senderId    String   @map("sender_id")
+  senderRole  String   @map("sender_role") // customer, support_agent, ops_manager
+  message     String   @db.Text
+  isInternal  Boolean  @default(false) @map("is_internal")
+  attachments String[] @default([])
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId])
+  @@map("support_ticket_messages")
+}
+
+enum TicketCategory {
+  PAYMENT_ISSUE
+  SERVICE_DELAY
+  DOCUMENT_ISSUE
+  REFUND_REQUEST
+  GENERAL_INQUIRY
+  COMPLAINT
+  TECHNICAL_ISSUE
+  FEEDBACK
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  WAITING_INTERNAL
+  RESOLVED
+  CLOSED
+}
+
+// ============================================================
+// STORY 8.X: Franchise Territory Management
+// ============================================================
+
+model FranchiseTerritory {
+  id              String    @id @default(uuid())
+  franchiseId     String    @map("franchise_id")
+  cityId          String    @map("city_id")
+  isExclusive     Boolean   @default(true) @map("is_exclusive")
+  revenueShareBps Int       @default(1000) @map("revenue_share_bps") // 1000 = 10.00%
+  startDate       DateTime  @map("start_date")
+  endDate         DateTime? @map("end_date")
+  createdBy       String    @map("created_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  franchise Franchise @relation(fields: [franchiseId], references: [id])
+
+  @@unique([franchiseId, cityId])
+  @@index([cityId])
+  @@map("franchise_territories")
+}
+

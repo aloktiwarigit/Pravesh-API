@@ -1,6 +1,7 @@
 // Story 10.8: Auto-Escalation to Support on SLA Breach
 import { PrismaClient } from '@prisma/client';
 import { supportService } from './support.service';
+import { logger } from '../../shared/utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -30,8 +31,9 @@ export class AutoEscalationService {
     });
 
     if (existing) {
-      console.info(
-        `Auto-escalation skipped for service ${serviceId} — active escalation ${existing.id} already exists`,
+      logger.info(
+        { serviceId, escalationId: existing.id },
+        'Auto-escalation skipped — active escalation already exists'
       );
       return existing;
     }
@@ -45,7 +47,7 @@ export class AutoEscalationService {
     });
 
     if (!service) {
-      console.error(`Auto-escalation failed — service ${serviceId} not found`);
+      logger.error({ serviceId }, 'Auto-escalation failed — service not found');
       return null;
     }
 
@@ -71,7 +73,7 @@ export class AutoEscalationService {
       });
     }
 
-    console.info({
+    logger.info({
       escalationId: escalation.id,
       serviceId,
       assignedAgentId: assignedAgent?.id,

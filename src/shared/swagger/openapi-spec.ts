@@ -1,8 +1,19 @@
 // ============================================================
 // OpenAPI 3.0 Specification for Property Legal Agent API
 // ============================================================
+//
+// NOTE: Auto-generated schemas from Zod validation are imported
+// from zod-schemas.ts and merged into components.schemas below.
+// Requires: npm install @asteasolutions/zod-to-openapi
+// ============================================================
 
-export const openApiSpec = {
+import { generateZodSchemas } from './zod-schemas';
+
+// ============================================================
+// Main OpenAPI Specification
+// ============================================================
+
+const baseOpenApiSpec = {
   openapi: '3.0.3',
   info: {
     title: 'Property Legal Agent API',
@@ -1752,4 +1763,25 @@ export const openApiSpec = {
 
   // Default security for all endpoints (can be overridden per-operation)
   security: [{ bearerAuth: [] }],
+};
+
+// ============================================================
+// Merge Auto-Generated Zod Schemas
+// ============================================================
+
+/**
+ * Merge auto-generated schemas from Zod validation into the base spec.
+ * This allows us to maintain both hand-written OpenAPI schemas and
+ * auto-generated ones from Zod validation schemas used in controllers.
+ */
+export const openApiSpec = {
+  ...baseOpenApiSpec,
+  components: {
+    ...baseOpenApiSpec.components,
+    schemas: {
+      ...baseOpenApiSpec.components.schemas,
+      // Auto-generated schemas from Zod (see zod-schemas.ts)
+      ...generateZodSchemas(),
+    },
+  },
 };

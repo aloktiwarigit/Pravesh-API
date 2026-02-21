@@ -2,6 +2,7 @@
 // Runs daily at midnight via cron: 0 0 * * *
 // Job name: support.compute-metrics per {domain}.{action} convention (DA-4)
 import { PrismaClient } from '@prisma/client';
+import { logger } from '../../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -105,8 +106,8 @@ export async function handleSupportMetricsComputation() {
       },
     });
 
-    console.info(`Support metrics computed for agent ${agentId}: ${casesHandled} cases, ${casesResolved} resolved`);
+    logger.info({ agentId, casesHandled, casesResolved }, 'Support metrics computed for agent');
   }
 
-  console.info(`Support metrics computation complete for ${uniqueAgentIds.length} agents`);
+  logger.info({ agentCount: uniqueAgentIds.length }, 'Support metrics computation complete');
 }

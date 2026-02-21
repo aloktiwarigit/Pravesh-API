@@ -164,13 +164,30 @@ export function registerEpic13Routes(
     nriDocumentRoutes(nriDocumentCoordinationService)
   );
 
-  // --- Background Job Registration ---
-  registerWireTransferSlaJob(boss, wireTransferService);
-  registerExchangeRateRefreshJob(boss, exchangeRateService);
-  registerPoaExpiryJob(boss, poaVerificationService);
+}
+
+/**
+ * Register Epic 13 background jobs with PgBoss.
+ * MUST be called AFTER boss.start() completes — boss.work() and boss.schedule()
+ * require the PgBoss schema to exist in the database.
+ */
+export async function registerEpic13Jobs(
+  boss: any,
+  prisma: PrismaClient,
+) {
+  // Re-instantiate the services that job handlers need
+  const wireTransferService = new WireTransferService(prisma);
+  const exchangeRateService = new ExchangeRateService(prisma);
+  const poaVerificationService = new PoaVerificationService(prisma, boss);
+  const consultationService = new ConsultationService(prisma, boss);
+
+  await registerWireTransferSlaJob(boss, wireTransferService);
+  await registerExchangeRateRefreshJob(boss, exchangeRateService);
+  await registerPoaExpiryJob(boss, poaVerificationService);
 
   // Consultation no-show check worker
-  boss.work('consultation.no-show-check', async (job: any) => {
+  await boss.createQueue('consultation.no-show-check');
+  await boss.work('consultation.no-show-check', async (job: any) => {
     await consultationService.handleNoShow(
       job.data.consultationId
     );

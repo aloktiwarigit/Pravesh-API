@@ -6,6 +6,7 @@
  */
 import { Request, Response } from 'express';
 import { RazorpayWebhookHandler, RazorpayWebhookPayload } from './razorpay-webhook.handler.js';
+import { logger } from '../../shared/utils/logger';
 
 export class RazorpayWebhookController {
   constructor(private readonly webhookHandler: RazorpayWebhookHandler) {}
@@ -25,7 +26,7 @@ export class RazorpayWebhookController {
       // Always return 200 to Razorpay to prevent retries for known events
       res.status(200).json(result);
     } catch (error) {
-      console.error('Webhook processing error:', error);
+      logger.error({ err: error }, 'Webhook processing error');
       // Return 200 even on error to prevent Razorpay from retrying
       // The event is already logged for manual review
       res.status(200).json({

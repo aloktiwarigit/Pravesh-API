@@ -4,16 +4,29 @@ import Razorpay from 'razorpay';
 import crypto from 'crypto';
 
 export class InternationalPaymentService {
-  private razorpay: Razorpay;
+  private razorpay: Razorpay | null;
 
   constructor(
     private prisma: PrismaClient,
     razorpay?: Razorpay,
   ) {
-    this.razorpay = razorpay ?? new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID!,
-      key_secret: process.env.RAZORPAY_KEY_SECRET!,
-    });
+    if (razorpay) {
+      this.razorpay = razorpay;
+    } else if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+      this.razorpay = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET,
+      });
+    } else {
+      this.razorpay = null;
+    }
+  }
+
+  private requireRazorpay(): Razorpay {
+    if (!this.razorpay) {
+      throw new Error('Razorpay not configured — set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET');
+    }
+    return this.razorpay;
   }
 
   async createInternationalUpiOrder(params: {
@@ -23,7 +36,7 @@ export class InternationalPaymentService {
     customerCurrency?: string;
   }) {
     // Create Razorpay order with INR currency for international UPI
-    const order = await this.razorpay.orders.create({
+    const order = await this.requireRazorpay().orders.create({
       amount: params.amountPaise,
       currency: 'INR',
       receipt: `nri_upi_${params.serviceRequestId}`,

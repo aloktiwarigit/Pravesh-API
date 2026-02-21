@@ -1,6 +1,7 @@
 // Story 6.11c: pg-boss job for stakeholder document upload reminders
 // Job name follows {domain}.{action} pattern per DA-4
 import { PrismaClient } from '@prisma/client';
+import { logger } from '../../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -85,11 +86,12 @@ export async function handleStakeholderReminder() {
       sentCount++;
     }
 
-    console.info(
-      `[stakeholder-reminder] Sent ${sentCount} reminders (${day7Stakeholders.length} at day 7, ${day14Stakeholders.length} at day 14)`,
+    logger.info(
+      { sentCount, day7: day7Stakeholders.length, day14: day14Stakeholders.length },
+      '[stakeholder-reminder] Sent reminders',
     );
   } catch (error: unknown) {
-    console.error('[stakeholder-reminder] Failed:', error);
+    logger.error({ err: error }, '[stakeholder-reminder] Failed');
     throw error;
   }
 }

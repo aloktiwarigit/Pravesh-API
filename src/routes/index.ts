@@ -52,8 +52,65 @@ import { createRatingController } from '../domains/ratings/rating.controller';
 // Service catalog (FR8-FR10)
 import { createServiceCatalogController } from '../domains/services/service-catalog.controller';
 
+// Service requests (Story 2-7: Submit Service Request)
+import { createServiceRequestController } from '../domains/services/service-request.controller';
+
+// Customer service lifecycle
+import { createCustomerServicesController } from '../domains/services/customer-services.controller';
+
+// Service instances (Story 5-6)
+import { ServiceInstanceService } from '../domains/services/service-instance.service';
+import { serviceInstanceRoutes } from '../domains/services/service-instance.controller';
+
+// Documents (Stories 6.2–6.14)
+import { DocumentsService } from '../domains/documents/documents.service';
+import { documentsRoutes } from '../domains/documents/documents.controller';
+
+// Agent domain (Stories 3-3, 3-5, 3-13)
+import { AgentTaskService } from '../domains/agents/agent-task.service';
+import { ChecklistService } from '../domains/agents/checklist.service';
+import { CashCollectionService } from '../domains/agents/cash-collection.service';
+import { agentTaskRoutes } from '../domains/agents/agent-task.controller';
+import { checklistRoutes } from '../domains/agents/checklist.controller';
+import { cashCollectionRoutes } from '../domains/agents/cash-collection.controller';
+
+// Referral domain (Story 4.11)
+import { ReferralService } from '../domains/referrals/referral.service';
+import { createReferralRouter } from '../domains/referrals/referral.router';
+
+// Payment domain (Stories 4.1, 4.2, 4.13)
+import { createPaymentController } from '../domains/payments/payment.controller';
+import { createRefundController } from '../domains/payments/refund.controller';
+import { RazorpayClient } from '../core/integrations/razorpay.client';
+
+// Support domain (Story 10.X)
+import { createTicketController } from '../domains/support/ticket.controller';
+
+// Court tracking (Story 4.1X)
+import { createCourtTrackingController } from '../domains/lawyers/court-tracking.controller';
+
+// Lawyer domain (Epic 12 — Stories 12-1 through 12-12)
+import lawyerRoutes from './lawyers.routes';
+import legalCaseRoutes from './legal-cases.routes';
+import legalOpinionRoutes from './legal-opinions.routes';
+import opsLegalMarketplaceRoutes from './ops-legal-marketplace.routes';
+
+// Ops dashboard (Story 5.1)
+import { createDashboardController } from '../domains/ops/dashboard.controller';
+
+// Franchise territories (Story 8.X)
+import { createTerritoryController } from '../domains/franchise/territory.controller';
+
+// Notifications (Story 7.X)
+import { createNotificationController } from '../domains/notifications/notification.controller';
+import { createNotificationTemplateController } from '../domains/notifications/notification-template.controller';
+
+// Campaigns
+import { createCampaignController } from '../domains/campaigns/campaign.controller';
+
 // Middleware
 import { authenticate } from '../middleware/authenticate';
+import { authorize } from '../middleware/authorize';
 import { scope } from '../middleware/scope';
 
 export interface ServiceContainer {
@@ -92,7 +149,7 @@ export function createServiceContainer(prisma: PrismaClient): ServiceContainer {
   };
 }
 
-export function createApiRouter(services: ServiceContainer, prismaInstance?: PrismaClient): Router {
+export function createApiRouter(services: ServiceContainer, prismaInstance?: PrismaClient, boss?: any): Router {
   const router = Router();
 
   // Apply authentication and scoping to all /api/v1 routes
@@ -163,10 +220,101 @@ export function createApiRouter(services: ServiceContainer, prismaInstance?: Pri
     router.use('/ratings', createRatingController(ratingService));
   }
 
+  // Customer service lifecycle (mount BEFORE catalog to avoid /:id catching 'catalog')
+  if (prismaInstance) {
+    router.use('/services', createCustomerServicesController(prismaInstance));
+
+    // Service instances (existing controller, now mounted)
+    const serviceInstanceService = new ServiceInstanceService(prismaInstance, boss ?? null);
+    router.use('/services/instances', serviceInstanceRoutes(serviceInstanceService));
+  }
+
+  // Stories 6.2–6.14: Document Management
+  if (prismaInstance) {
+    const documentService = new DocumentsService(prismaInstance, boss ?? null);
+    router.use('/documents', documentsRoutes(documentService));
+  }
+
   // FR8-FR10: Service Catalog Browsing
+  // Mount at both /services/catalog (canonical) and /services/categories (Flutter app compatibility)
   if (prismaInstance) {
     router.use('/services/catalog', createServiceCatalogController(prismaInstance));
+    router.use('/services/categories', createServiceCatalogController(prismaInstance));
   }
+
+  // Story 2-7: Service Request Submission
+  if (prismaInstance) {
+    router.use('/service-requests', createServiceRequestController(prismaInstance));
+  }
+
+  // Agent domain: Tasks, Checklists, Cash Collection (Stories 3-3, 3-5, 3-13)
+  if (prismaInstance) {
+    const agentTaskService = new AgentTaskService(prismaInstance, boss ?? null);
+    const checklistService = new ChecklistService(prismaInstance, boss ?? null);
+    const cashCollectionService = new CashCollectionService(prismaInstance, boss ?? null);
+    router.use('/agents/tasks', agentTaskRoutes(agentTaskService));
+    router.use('/agents/checklists', checklistRoutes(checklistService));
+    router.use('/agents/cash', cashCollectionRoutes(cashCollectionService));
+  }
+
+  // Story 4.11: Referral Credits
+  // Note: authenticate is already applied at router level; pass no-op for authMiddleware
+  if (prismaInstance) {
+    const referralService = new ReferralService(prismaInstance);
+    const noopMiddleware = (_req: any, _res: any, next: any) => next();
+    router.use('/referrals', createReferralRouter({
+      referralService,
+      authMiddleware: noopMiddleware,
+      roleMiddleware: (..._roles: string[]) => noopMiddleware,
+      validate: () => noopMiddleware,
+    }));
+  }
+
+  // Stories 4.1, 4.2: Payment Order Creation & Verification
+  // Story 4.13: Refund Processing
+  if (prismaInstance) {
+    const razorpay = new RazorpayClient(
+      process.env.RAZORPAY_KEY_ID || '',
+      process.env.RAZORPAY_KEY_SECRET || '',
+    );
+    router.use('/payments', createPaymentController(prismaInstance, razorpay));
+    router.use('/payments', createRefundController(prismaInstance, razorpay));
+    router.use('/refunds', createRefundController(prismaInstance, razorpay));
+  }
+
+  // Story 10.X: Support Tickets
+  if (prismaInstance) {
+    router.use('/support/tickets', createTicketController(prismaInstance));
+  }
+
+  // Story 4.1X: Court Hearing Tracking
+  if (prismaInstance) {
+    router.use('/legal-cases', createCourtTrackingController(prismaInstance));
+    router.use('/hearings', createCourtTrackingController(prismaInstance));
+  }
+
+  // Story 5.1: Ops Dashboard
+  if (prismaInstance) {
+    router.use('/ops/dashboard', createDashboardController(prismaInstance));
+  }
+
+  // Story 8.X: Franchise Territories
+  if (prismaInstance) {
+    router.use('/franchise', createTerritoryController(prismaInstance));
+  }
+
+  // Notification endpoints (customer-facing)
+  if (prismaInstance) {
+    router.use('/notifications', createNotificationController(prismaInstance));
+    router.use('/notification-templates', createNotificationTemplateController(prismaInstance));
+    router.use('/campaigns', createCampaignController(prismaInstance));
+  }
+
+  // Epic 12: Lawyer Portal (Stories 12-1 through 12-12)
+  router.use('/lawyers', lawyerRoutes);
+  router.use('/legal-cases', legalCaseRoutes);
+  router.use('/legal-opinions', legalOpinionRoutes);
+  router.use('/ops/legal-marketplace', opsLegalMarketplaceRoutes);
 
   return router;
 }

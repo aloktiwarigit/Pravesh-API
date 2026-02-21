@@ -11,6 +11,7 @@
 import { Express } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import { openApiSpec } from './openapi-spec';
+import { logger } from '../utils/logger';
 
 /**
  * Mounts Swagger UI at /api-docs on the given Express app.
@@ -51,6 +52,6 @@ export function setupSwagger(app: Express): void {
     swaggerUi.setup(openApiSpec, swaggerUiOptions),
   );
 
-  console.log('[Server] Swagger UI available at /api-docs');
-  console.log('[Server] OpenAPI spec available at /api-docs/spec.json');
+  logger.info('Swagger UI available at /api-docs');
+  logger.info('OpenAPI spec available at /api-docs/spec.json');
 }

@@ -1,6 +1,7 @@
 // Story 10.4: pg-boss job for support follow-up reminder notifications
 // Job name follows {domain}.{action} pattern per DA-4
 import { PrismaClient } from '@prisma/client';
+import { logger } from '../../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -26,7 +27,7 @@ export async function handleSupportReminder(job: { data: SupportReminderPayload 
   });
 
   if (!reminder || reminder.status !== 'PENDING') {
-    console.info(`Reminder ${reminderId} skipped — status is ${reminder?.status ?? 'not found'}`);
+    logger.info({ reminderId, status: reminder?.status ?? 'not found' }, 'Reminder skipped');
     return;
   }
 
@@ -37,5 +38,5 @@ export async function handleSupportReminder(job: { data: SupportReminderPayload 
   //   data: { type: 'support_reminder', reminderId, serviceId },
   // });
 
-  console.info(`Reminder notification sent to agent ${supportAgentId} for service ${serviceId}`);
+  logger.info({ supportAgentId, serviceId }, 'Reminder notification sent');
 }

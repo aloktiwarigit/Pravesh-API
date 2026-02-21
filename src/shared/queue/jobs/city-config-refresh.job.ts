@@ -1,4 +1,5 @@
 import { CityService } from '../../../domains/franchise/city.service';
+import { logger } from '../../utils/logger';
 
 /**
  * Story 14-1: Cache refresh job
@@ -7,7 +8,7 @@ import { CityService } from '../../../domains/franchise/city.service';
 export function createCityConfigRefreshHandler(cityService: CityService) {
   return async () => {
     cityService.clearCache();
-    console.log('[CityConfigRefresh] Cache cleared at', new Date().toISOString());
+    logger.info({ timestamp: new Date().toISOString() }, '[CityConfigRefresh] Cache cleared');
   };
 }
 

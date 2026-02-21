@@ -2,6 +2,7 @@
 // Runs every 15 minutes via cron: */15 * * * *
 // Job name: support.sla-check per {domain}.{action} convention (DA-4)
 import { PrismaClient } from '@prisma/client';
+import { logger } from '../../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -41,7 +42,7 @@ export async function handleSupportSlaCheck() {
     //   data: { type: 'sla_breach', escalationId: esc.id },
     // });
 
-    console.warn(`First response SLA breached for escalation ${esc.id}`);
+    logger.warn({ escalationId: esc.id }, 'First response SLA breached');
   }
 
   // ---- Resolution SLA Breaches ----
@@ -71,7 +72,7 @@ export async function handleSupportSlaCheck() {
     //   data: { type: 'resolution_breach', escalationId: esc.id, priority: 'high' },
     // });
 
-    console.warn(`Resolution SLA breached for escalation ${esc.id} — auto-escalated to Ops`);
+    logger.warn({ escalationId: esc.id }, 'Resolution SLA breached — auto-escalated to Ops');
   }
 
   // ---- Update Firestore for real-time dashboard (AC7) ----
@@ -86,7 +87,8 @@ export async function handleSupportSlaCheck() {
   //   });
   // }
 
-  console.info(
-    `SLA check complete: ${firstResponseBreaches.length} first response breaches, ${resolutionBreaches.length} resolution breaches`,
+  logger.info(
+    { firstResponseBreaches: firstResponseBreaches.length, resolutionBreaches: resolutionBreaches.length },
+    'SLA check complete',
   );
 }

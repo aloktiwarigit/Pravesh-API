@@ -7,6 +7,7 @@ import { PrismaClient, UserStatus } from '@prisma/client';
 import admin from 'firebase-admin';
 import { BusinessError } from '../../shared/errors/business-error';
 import { NriDetectionService } from './nri-detection.service';
+import { logger } from '../../shared/utils/logger';
 
 const VALID_ROLES = [
   'customer',
@@ -31,7 +32,7 @@ export class AuthService {
 
   async registerOrLogin(data: {
     firebaseUid: string;
-    phone: string;
+    phone?: string;
     displayName?: string;
     email?: string;
     isNri?: boolean;
@@ -42,10 +43,13 @@ export class AuthService {
       where: { firebaseUid: data.firebaseUid },
     });
 
+    // For Google Sign-In users without phone, generate a unique placeholder
+    const phone = data.phone || `G${data.firebaseUid.substring(0, 9)}`;
+
     // Auto-detect NRI status from phone if not explicitly provided
-    const isNri = data.isNri ?? NriDetectionService.isNriPhone(data.phone);
+    const isNri = data.isNri ?? (data.phone ? NriDetectionService.isNriPhone(data.phone) : false);
     const countryInfo = isNri
-      ? NriDetectionService.getCountryFromPhone(data.phone)
+      ? NriDetectionService.getCountryFromPhone(data.phone || '')
       : null;
     const countryCode = data.countryCode ?? countryInfo?.code ?? null;
 
@@ -60,23 +64,48 @@ export class AuthService {
         },
       });
 
+      // Always re-sync Firebase custom claims on login to ensure they're current
+      // (handles case where initial claim-setting failed silently)
+      try {
+        await admin.auth().setCustomUserClaims(data.firebaseUid, {
+          roles: user.roles,
+          primaryRole: user.primaryRole,
+          cityId: user.cityId,
+        });
+      } catch (claimsError) {
+        logger.warn({ err: claimsError }, 'Failed to sync Firebase claims on login');
+      }
+
       return { user, isNewUser: false };
     }
 
-    // New user — create with PENDING_ROLE status
+    // New user — auto-assign customer role and set ACTIVE
     const user = await this.prisma.user.create({
       data: {
         firebaseUid: data.firebaseUid,
-        phone: data.phone,
+        phone,
         displayName: data.displayName ?? null,
         email: data.email ?? null,
-        status: UserStatus.PENDING_ROLE,
+        roles: ['customer'],
+        primaryRole: 'customer',
+        status: UserStatus.ACTIVE,
         isNri,
         countryCode,
         languagePref: data.languagePref ?? 'hi',
         lastLoginAt: new Date(),
       },
     });
+
+    // Set Firebase Custom Claims immediately so the app picks up the role
+    try {
+      await admin.auth().setCustomUserClaims(data.firebaseUid, {
+        roles: ['customer'],
+        primaryRole: 'customer',
+      });
+    } catch (claimsError) {
+      // Non-blocking: user is created, claims sync can happen later via refreshClaims
+      logger.warn({ err: claimsError }, 'Failed to set initial Firebase claims');
+    }
 
     return { user, isNewUser: true };
   }

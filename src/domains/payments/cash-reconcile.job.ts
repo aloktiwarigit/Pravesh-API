@@ -6,6 +6,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { ReconciliationService } from './reconciliation.service.js';
+import { logger } from '../../shared/utils/logger';
 
 export const CASH_RECONCILE_QUEUE = 'cash.reconcile-daily';
 
@@ -34,7 +35,7 @@ export async function registerCashReconcileJob(
         try {
           await reconciliationService.runDailyReconciliation(city.id, today);
         } catch (error) {
-          console.error(`Reconciliation failed for city ${city.id}:`, error);
+          logger.error({ err: error, cityId: city.id }, 'Reconciliation failed');
         }
       }
     },

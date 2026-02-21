@@ -1,5 +1,6 @@
 // Story 6.13: Enhanced Audit Logger — immutable append-only logging for all security-sensitive operations
 import { prisma } from '../shared/prisma/client';
+import { logger } from '../shared/utils/logger';
 
 export interface AuditLogInput {
   userId: string;
@@ -36,6 +37,6 @@ export async function auditLog(input: AuditLogInput): Promise<void> {
     });
   } catch (error) {
     // Audit logging should never break the main flow
-    console.error('[audit-logger] Failed to create audit log entry:', error);
+    logger.error({ err: error }, 'Failed to create audit log entry');
   }
 }

@@ -1,8 +1,10 @@
 // Story 6.3 + 6.4: pg-boss job for AI document verification
 // Job name follows {domain}.{action} pattern per DA-4
 import { PrismaClient } from '@prisma/client';
-import { AiVerificationService } from '../../../domains/documents/ai-verification.service.js';
+// AiVerificationService is loaded dynamically inside the handler to avoid
+// crashing at import time when @azure/ai-form-recognizer is not installed.
 import { getFirestore } from 'firebase-admin/firestore';
+import { logger } from '../../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -45,6 +47,8 @@ export async function handleDocumentVerify(job: { data: DocumentVerifyPayload })
       },
     });
 
+    // Dynamic import: only loads @azure/ai-form-recognizer when a job actually runs
+    const { AiVerificationService } = await import('../../../domains/documents/ai-verification.service.js');
     const aiService = new AiVerificationService();
     const result = await aiService.verifyDocument({ id: documentId, storagePath, docType: expectedType });
 
@@ -110,8 +114,14 @@ export async function handleDocumentVerify(job: { data: DocumentVerifyPayload })
       },
     });
 
-    console.info(
-      `[document-verify] Document ${documentId} verified: ${result.overall_status} (${result.confidence_score.toFixed(1)}% confidence) in ${duration}ms`,
+    logger.info(
+      {
+        documentId,
+        status: result.overall_status,
+        confidenceScore: result.confidence_score,
+        durationMs: duration
+      },
+      '[document-verify] Document verified'
     );
   } catch (error: unknown) {
     const duration = Date.now() - startTime;
@@ -133,7 +143,7 @@ export async function handleDocumentVerify(job: { data: DocumentVerifyPayload })
       },
     }).catch(() => {});
 
-    console.error(`[document-verify] Failed for document ${documentId}:`, error);
+    logger.error({ documentId, error }, '[document-verify] Failed');
     throw error; // Let pg-boss handle retries
   }
 }

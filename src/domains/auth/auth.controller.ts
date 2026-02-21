@@ -46,7 +46,7 @@ export function createAuthController(prisma: PrismaClient): Router {
         firebaseUid: input.firebaseUid,
         phone: input.phone,
         displayName: input.displayName,
-        email: req.body.email,
+        email: input.email,
         languagePref: input.languagePref,
       });
       res.status(result.isNewUser ? 201 : 200).json({ success: true, data: result });

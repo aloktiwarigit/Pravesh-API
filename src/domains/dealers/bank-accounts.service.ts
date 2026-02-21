@@ -37,6 +37,7 @@ export class BankAccountService {
         accountHolderName: input.accountHolderName,
         bankName: input.bankName,
         ifscCode: input.ifscCode,
+        accountNumber: input.accountNumber,
         accountNumberMasked,
         accountNumberEncrypted,
         accountType: input.accountType,

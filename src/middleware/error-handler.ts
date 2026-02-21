@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { BusinessError } from '../shared/errors/business-error';
+import { logger } from '../shared/utils/logger';
 
-export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction) {
+export function errorHandler(err: Error, req: Request, res: Response, _next: NextFunction) {
   // Zod validation errors -> 400
   if (err instanceof ZodError) {
     res.status(400).json({
@@ -59,7 +60,7 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
   }
 
   // Unknown errors -> 500
-  console.error('[ErrorHandler] Unhandled error:', err);
+  logger.error({ err, requestId: req.id }, 'Unhandled error');
   res.status(500).json({
     success: false,
     error: {

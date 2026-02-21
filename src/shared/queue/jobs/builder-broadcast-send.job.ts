@@ -4,6 +4,7 @@
 // ============================================================
 
 import { PrismaClient } from '@prisma/client';
+import { logger } from '../../utils/logger';
 
 export interface BuilderBroadcastSendPayload {
   broadcastId: string;
@@ -74,9 +75,9 @@ export async function handleBuilderBroadcastSend(
       sent++;
     } catch (error) {
       failed++;
-      console.error(
-        `Failed to send broadcast to ${unit.buyerPhone}:`,
-        error
+      logger.error(
+        { buyerPhone: unit.buyerPhone, error },
+        'Failed to send broadcast'
       );
     }
   }

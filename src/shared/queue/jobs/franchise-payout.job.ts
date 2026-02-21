@@ -1,5 +1,6 @@
 import { FranchiseRevenueService } from '../../../domains/franchise/franchise-revenue.service';
 import { getCurrentMonth } from '../../utils/date';
+import { logger } from '../../utils/logger';
 
 /**
  * Story 14-8: Monthly franchise payout job
@@ -12,14 +13,14 @@ export function createFranchisePayoutHandler(revenueService: FranchiseRevenueSer
     const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const month = `${previousMonth.getFullYear()}-${String(previousMonth.getMonth() + 1).padStart(2, '0')}`;
 
-    console.log(`[FranchisePayout] Processing payouts for ${month}`);
+    logger.info({ month }, '[FranchisePayout] Processing payouts');
 
     try {
       const results = await revenueService.processMonthlyPayout(month);
-      console.log(`[FranchisePayout] Processed ${results.length} franchise payouts for ${month}`);
+      logger.info({ month, count: results.length }, '[FranchisePayout] Processed franchise payouts');
       return results;
     } catch (error) {
-      console.error(`[FranchisePayout] Error processing payouts for ${month}:`, error);
+      logger.error({ month, error }, '[FranchisePayout] Error processing payouts');
       throw error;
     }
   };

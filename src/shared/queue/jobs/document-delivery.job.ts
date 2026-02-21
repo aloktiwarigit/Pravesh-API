@@ -2,6 +2,7 @@
 // Job name follows {domain}.{action} pattern per DA-4
 import { PrismaClient } from '@prisma/client';
 import { getStorage } from 'firebase-admin/storage';
+import { logger } from '../../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -89,11 +90,12 @@ export async function handleDocumentDelivery(job: { data: DocumentDeliveryPayloa
       },
     });
 
-    console.info(
-      `[document-delivery] WhatsApp delivery queued for document ${documentId} (${documentType}) to ${customerPhone}`,
+    logger.info(
+      { documentId, documentType, customerPhone },
+      '[document-delivery] WhatsApp delivery queued'
     );
   } catch (error: unknown) {
-    console.error(`[document-delivery] Failed for document ${documentId}:`, error);
+    logger.error({ documentId, error }, '[document-delivery] Failed');
     throw error; // Let pg-boss handle retries
   }
 }

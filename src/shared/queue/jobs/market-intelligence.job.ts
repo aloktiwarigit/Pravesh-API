@@ -1,5 +1,6 @@
 import { AnalyticsService } from '../../../domains/analytics/analytics.service';
 import { PrismaClient } from '@prisma/client';
+import { logger } from '../../utils/logger';
 
 /**
  * Story 14-11: Market intelligence report generation job
@@ -10,7 +11,7 @@ export function createMarketIntelligenceHandler(
   prisma: PrismaClient
 ) {
   return async () => {
-    console.log('[MarketIntelligence] Starting monthly report generation');
+    logger.info('[MarketIntelligence] Starting monthly report generation');
 
     const cities = await prisma.city.findMany({
       where: { activeStatus: true },
@@ -22,7 +23,7 @@ export function createMarketIntelligenceHandler(
       try {
         const report = await analyticsService.generateMarketIntelligenceReport(city.id);
         results.push({ cityId: city.id, cityName: city.cityName, status: 'success' });
-        console.log(`[MarketIntelligence] Report generated for ${city.cityName}`);
+        logger.info({ cityId: city.id, cityName: city.cityName }, '[MarketIntelligence] Report generated');
 
         // In production: generate PDF and store in Firebase Storage
       } catch (error: any) {
@@ -35,12 +36,12 @@ export function createMarketIntelligenceHandler(
           });
         } else {
           results.push({ cityId: city.id, cityName: city.cityName, status: 'failed', error: error.message });
-          console.error(`[MarketIntelligence] Failed for ${city.cityName}:`, error);
+          logger.error({ cityId: city.id, cityName: city.cityName, error }, '[MarketIntelligence] Failed');
         }
       }
     }
 
-    console.log(`[MarketIntelligence] Completed. ${results.length} cities processed.`);
+    logger.info({ citiesProcessed: results.length }, '[MarketIntelligence] Completed');
     return results;
   };
 }

@@ -1,5 +1,6 @@
 import { CommissionService } from '../../../domains/dealers/commissions.service';
 import { BadgeService } from '../../../domains/dealers/badges.service';
+import { logger } from '../../utils/logger';
 
 /**
  * Story 9.7: Commission Calculation Job
@@ -13,7 +14,7 @@ export function createCommissionCalculateHandler(
   return async (job: { data: { serviceRequestId: string; dealerId?: string } }) => {
     const { serviceRequestId, dealerId } = job.data;
 
-    console.log(`[CommissionCalculate] Processing service request ${serviceRequestId}`);
+    logger.info({ serviceRequestId }, '[CommissionCalculate] Processing service request');
 
     try {
       // Calculate commission for the service request
@@ -26,15 +27,16 @@ export function createCommissionCalculateHandler(
       if (dealerId) {
         const newBadges = await badgeService.evaluateAndAwardBadges(dealerId);
         if (newBadges.length > 0) {
-          console.log(
-            `[CommissionCalculate] Awarded ${newBadges.length} badges to dealer ${dealerId}: ${newBadges.join(', ')}`,
+          logger.info(
+            { dealerId, badgesCount: newBadges.length, badges: newBadges },
+            '[CommissionCalculate] Awarded badges to dealer'
           );
         }
       }
 
-      console.log(`[CommissionCalculate] Done for service request ${serviceRequestId}`);
+      logger.info({ serviceRequestId }, '[CommissionCalculate] Done for service request');
     } catch (error) {
-      console.error(`[CommissionCalculate] Error for ${serviceRequestId}:`, error);
+      logger.error({ serviceRequestId, error }, '[CommissionCalculate] Error');
       throw error;
     }
   };

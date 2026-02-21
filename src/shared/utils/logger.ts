@@ -1,51 +1,23 @@
-/**
- * Shared Logger Utility
- * Structured JSON logging for Azure Application Insights compatibility
- */
+import pino from 'pino';
 
-type LogLevel = 'info' | 'warn' | 'error' | 'debug';
+const level = process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug');
 
-interface LogEntry {
-  level: LogLevel;
-  message: string;
-  context?: Record<string, unknown>;
-  timestamp: string;
-}
-
-function formatLog(level: LogLevel, contextOrMessage: Record<string, unknown> | string, message?: string): LogEntry {
-  const entry: LogEntry = {
-    level,
-    message: typeof contextOrMessage === 'string' ? contextOrMessage : (message ?? ''),
-    timestamp: new Date().toISOString(),
-  };
-
-  if (typeof contextOrMessage === 'object') {
-    entry.context = contextOrMessage;
-  }
-
-  return entry;
-}
-
-export const logger = {
-  info(contextOrMessage: Record<string, unknown> | string, message?: string): void {
-    const entry = formatLog('info', contextOrMessage, message);
-    console.log(JSON.stringify(entry));
+export const logger = pino({
+  level,
+  transport: process.env.NODE_ENV !== 'production'
+    ? { target: 'pino/file', options: { destination: 1 } }
+    : undefined,
+  formatters: {
+    level(label) {
+      return { level: label };
+    },
   },
-
-  warn(contextOrMessage: Record<string, unknown> | string, message?: string): void {
-    const entry = formatLog('warn', contextOrMessage, message);
-    console.warn(JSON.stringify(entry));
+  timestamp: pino.stdTimeFunctions.isoTime,
+  base: { service: 'pla-api' },
+  redact: {
+    paths: ['req.headers.authorization', 'req.headers.cookie'],
+    remove: true,
   },
+});
 
-  error(contextOrMessage: Record<string, unknown> | string, message?: string): void {
-    const entry = formatLog('error', contextOrMessage, message);
-    console.error(JSON.stringify(entry));
-  },
-
-  debug(contextOrMessage: Record<string, unknown> | string, message?: string): void {
-    if (process.env.NODE_ENV === 'development') {
-      const entry = formatLog('debug', contextOrMessage, message);
-      console.debug(JSON.stringify(entry));
-    }
-  },
-};
+export type Logger = pino.Logger;

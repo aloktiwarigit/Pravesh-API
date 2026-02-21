@@ -1,4 +1,5 @@
 import { PayoutService } from '../../../domains/dealers/payouts.service';
+import { logger } from '../../utils/logger';
 
 /**
  * Story 9.14: Scheduled Commission Payout Job
@@ -9,19 +10,24 @@ import { PayoutService } from '../../../domains/dealers/payouts.service';
 export function createDealerPayoutHandler(payoutService: PayoutService) {
   return async () => {
     const today = new Date();
-    console.log(
-      `[DealerPayout] Starting payout cycle for ${today.toISOString().slice(0, 10)}`,
+    logger.info(
+      { date: today.toISOString().slice(0, 10) },
+      '[DealerPayout] Starting payout cycle'
     );
 
     try {
       const results = await payoutService.processPayoutCycle();
-      console.log(
-        `[DealerPayout] Completed. Dealers: ${results.totalDealers}, ` +
-          `Total: ${results.totalAmountPaise} paise, Failed: ${results.failedPayouts}`,
+      logger.info(
+        {
+          totalDealers: results.totalDealers,
+          totalAmountPaise: results.totalAmountPaise,
+          failedPayouts: results.failedPayouts
+        },
+        '[DealerPayout] Completed'
       );
       return results;
     } catch (error) {
-      console.error('[DealerPayout] Error:', error);
+      logger.error({ error }, '[DealerPayout] Error');
       throw error;
     }
   };

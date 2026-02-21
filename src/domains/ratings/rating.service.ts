@@ -66,6 +66,43 @@ export class RatingService {
     });
   }
 
+  async resolveServiceInstanceId(serviceRequestId: string): Promise<string> {
+    const instance = await this.prisma.serviceInstance.findFirst({
+      where: { serviceRequests: { some: { id: serviceRequestId } } },
+      select: { id: true },
+    });
+
+    if (!instance) {
+      throw new AppError(
+        'SERVICE_INSTANCE_NOT_FOUND',
+        'No service instance found for the given service request',
+        404,
+      );
+    }
+
+    return instance.id;
+  }
+
+  async getRatingByServiceRequestId(serviceRequestId: string, customerId: string) {
+    const instance = await this.prisma.serviceInstance.findFirst({
+      where: { serviceRequests: { some: { id: serviceRequestId } } },
+      select: { id: true },
+    });
+
+    if (!instance) {
+      return null;
+    }
+
+    return this.prisma.serviceRating.findUnique({
+      where: {
+        serviceInstanceId_customerId: {
+          serviceInstanceId: instance.id,
+          customerId,
+        },
+      },
+    });
+  }
+
   async getRatingsForAgent(agentId: string) {
     const ratings = await this.prisma.serviceRating.findMany({
       where: { agentId },

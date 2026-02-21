@@ -3,8 +3,9 @@ import { PrismaClient } from '@prisma/client';
 import { getStorage } from 'firebase-admin/storage';
 import { getFirestore } from 'firebase-admin/firestore';
 import { CreateDocumentInput, OverrideVerificationInput } from './documents.types.js';
-import { DOCUMENT_VERIFY_JOB } from '../../shared/queue/jobs/document-verify.job.js';
-import { DOCUMENT_DELIVERY_JOB } from '../../shared/queue/jobs/document-delivery.job.js';
+// Job name constants (inlined to avoid pulling in heavy Azure AI SDK at import time)
+const DOCUMENT_VERIFY_JOB = 'document.ai-verify';
+const DOCUMENT_DELIVERY_JOB = 'document.whatsapp-deliver';
 import { isCriticalDocument } from './document-config.js';
 
 export class DocumentsService {

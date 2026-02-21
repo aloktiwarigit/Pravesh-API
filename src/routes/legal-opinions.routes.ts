@@ -7,7 +7,8 @@ import { authorize } from '../middleware/authorize';
 const router = Router();
 
 // Initialize service and controller
-const lawyerService = new LawyerService(prisma);
+// Cast prisma as any because the extended client type is not directly assignable to PrismaClient
+const lawyerService = new LawyerService(prisma as any);
 const lawyerController = new LawyerController(lawyerService);
 
 // ============================================================

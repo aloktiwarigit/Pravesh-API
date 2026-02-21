@@ -3,6 +3,7 @@ import admin from 'firebase-admin';
 import { franchiseApplicationCreateSchema, reviewChecklistSchema, contractTermsSchema, FranchiseApplicationStatus, ContractTerms } from './franchise.types';
 import { BusinessError } from '../../shared/errors/business-error';
 import * as ErrorCodes from '../../shared/errors/error-codes';
+import { logger } from '../../shared/utils/logger';
 
 /**
  * Story 14-5: Franchise Application & Vetting Workflow
@@ -213,7 +214,7 @@ export class FranchiseApplicationService {
         },
       });
     } catch (claimsErr) {
-      console.error('[FranchiseApplication] Failed to set Firebase claims:', claimsErr);
+      logger.error({ err: claimsErr }, 'Failed to set Firebase claims for franchise application');
     }
 
     return { application: updatedApp, franchise };

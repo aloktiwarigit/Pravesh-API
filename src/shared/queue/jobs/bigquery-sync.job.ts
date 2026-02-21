@@ -1,4 +1,5 @@
 import { BigQueryPipelineService } from '../../../domains/analytics/bigquery-pipeline.service';
+import { logger } from '../../utils/logger';
 
 /**
  * Story 14-14: BigQuery sync job
@@ -6,22 +7,23 @@ import { BigQueryPipelineService } from '../../../domains/analytics/bigquery-pip
  */
 export function createBigQuerySyncHandler(pipelineService: BigQueryPipelineService) {
   return async () => {
-    console.log('[BigQuerySync] Starting sync pipeline');
+    logger.info('[BigQuerySync] Starting sync pipeline');
 
     try {
       const result = await pipelineService.runSync();
-      console.log(
-        `[BigQuerySync] Completed: ${result.tablesProcessed} tables, ${result.totalRecords} records, ${result.durationMs}ms`
+      logger.info(
+        { tablesProcessed: result.tablesProcessed, totalRecords: result.totalRecords, durationMs: result.durationMs },
+        '[BigQuerySync] Completed'
       );
 
       if (result.errors.length > 0) {
-        console.warn('[BigQuerySync] Errors:', result.errors);
+        logger.warn({ errors: result.errors }, '[BigQuerySync] Errors occurred');
         // In production: send alert to ops team
       }
 
       return result;
     } catch (error) {
-      console.error('[BigQuerySync] Pipeline failed:', error);
+      logger.error({ error }, '[BigQuerySync] Pipeline failed');
       throw error;
     }
   };

@@ -1,4 +1,5 @@
 import { DealerService } from '../../../domains/dealers/dealers.service';
+import { logger } from '../../utils/logger';
 
 /**
  * Story 9.8: Monthly Tier Recalculation Job
@@ -9,17 +10,17 @@ import { DealerService } from '../../../domains/dealers/dealers.service';
  */
 export function createTierRecalculateHandler(dealerService: DealerService) {
   return async () => {
-    console.log('[TierRecalculate] Starting monthly tier recalculation');
+    logger.info('[TierRecalculate] Starting monthly tier recalculation');
 
     try {
       const results = await dealerService.calculateMonthlyTiers();
-      console.log(
-        `[TierRecalculate] Processed ${results.promoted + results.demoted + results.unchanged} dealers. ` +
-          `Upgrades: ${results.promoted}, Downgrades: ${results.demoted}`,
+      logger.info(
+        { promoted: results.promoted, demoted: results.demoted, unchanged: results.unchanged },
+        '[TierRecalculate] Completed',
       );
       return results;
     } catch (error) {
-      console.error('[TierRecalculate] Error:', error);
+      logger.error({ err: error }, '[TierRecalculate] Error');
       throw error;
     }
   };

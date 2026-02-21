@@ -27,6 +27,7 @@ import type {
   BulkPricingBreakdown,
   RecipientFilter,
 } from './builders.types';
+import { logger } from '../../shared/utils/logger';
 
 export class BuildersService {
   constructor(private prisma: PrismaClient) {}
@@ -117,7 +118,7 @@ export class BuildersService {
           },
         });
       } catch (claimsErr) {
-        console.error('[BuildersService] Failed to set Firebase claims:', claimsErr);
+        logger.error({ err: claimsErr }, 'Failed to set Firebase claims for builder');
       }
     }
 
@@ -312,8 +313,20 @@ export class BuildersService {
     }
 
     // Calculate pricing (uses BigInt internally)
-    const perUnitFeePaise = BigInt(1500000); // placeholder 15,000 INR per service
-    const totalFeePaise = perUnitFeePaise * BigInt(input.serviceIds.length) * BigInt(unitCount);
+    // Fetch service prices from ServiceDefinition catalog
+    const serviceDefs = await this.prisma.serviceDefinition.findMany({
+      where: { id: { in: input.serviceIds } },
+      select: { id: true, definition: true },
+    });
+
+    // Calculate total fee from service catalog prices
+    let totalFeePaise = BigInt(0);
+    for (const svc of serviceDefs) {
+      const config = svc.definition as { pricing?: { basePaiseFee?: number } } | null;
+      const baseFee = config?.pricing?.basePaiseFee ?? 1500000; // fallback 15K if not configured
+      totalFeePaise += BigInt(baseFee) * BigInt(unitCount);
+    }
+
     const discountPct = calculateBulkDiscount(unitCount);
     const discountAmountPaise = (totalFeePaise * BigInt(discountPct)) / BigInt(100);
     const discountedFeePaise = totalFeePaise - discountAmountPaise;
@@ -361,17 +374,36 @@ export class BuildersService {
   }
 
   async getBulkPricingPreview(serviceIds: string[], unitCount: number) {
-    // In production, fetch service fees from service catalog
-    // For now, use placeholder per-service fee
-    const perServiceFeePaise = BigInt(1500000); // 15,000 INR
-    const perServiceGovtFeePaise = BigInt(500000); // 5,000 INR
+    // Fetch service fees from ServiceDefinition catalog
+    const serviceDefs = await this.prisma.serviceDefinition.findMany({
+      where: { id: { in: serviceIds } },
+      select: { id: true, name: true, definition: true },
+    });
 
-    const lineItems: PricingLineItem[] = serviceIds.map((id) => ({
-      serviceId: id,
-      serviceName: '',
-      baseFeePaise: perServiceFeePaise,
-      govtFeeEstimatePaise: perServiceGovtFeePaise,
-    }));
+    const lineItems: PricingLineItem[] = serviceDefs.map((svc) => {
+      const config = svc.definition as {
+        pricing?: { basePaiseFee?: number; govtFeeEstimatePaise?: number };
+      } | null;
+
+      return {
+        serviceId: svc.id,
+        serviceName: svc.name || '',
+        baseFeePaise: BigInt(config?.pricing?.basePaiseFee ?? 1500000), // fallback 15K
+        govtFeeEstimatePaise: BigInt(config?.pricing?.govtFeeEstimatePaise ?? 500000), // fallback 5K
+      };
+    });
+
+    // Handle case where some services weren't found
+    const foundIds = new Set(serviceDefs.map(s => s.id));
+    const missingIds = serviceIds.filter(id => !foundIds.has(id));
+    for (const id of missingIds) {
+      lineItems.push({
+        serviceId: id,
+        serviceName: 'Unknown Service',
+        baseFeePaise: BigInt(1500000),
+        govtFeeEstimatePaise: BigInt(500000),
+      });
+    }
 
     return calculateBulkPricingBreakdown(lineItems, unitCount);
   }
@@ -647,8 +679,24 @@ export class BuildersService {
     const contractNumber = await this.generateContractNumber();
 
     // Calculate total value: sum of service fees x units x discount
-    // In production, fetch actual service fees from catalog
-    const perUnitFeePaise = BigInt(1500000) * BigInt(input.serviceIds.length);
+    // Fetch actual service fees from ServiceDefinition catalog
+    const serviceDefs = await this.prisma.serviceDefinition.findMany({
+      where: { id: { in: input.serviceIds } },
+      select: { id: true, definition: true },
+    });
+
+    let perUnitFeePaise = BigInt(0);
+    for (const svc of serviceDefs) {
+      const config = svc.definition as { pricing?: { basePaiseFee?: number } } | null;
+      const baseFee = config?.pricing?.basePaiseFee ?? 1500000; // fallback 15K
+      perUnitFeePaise += BigInt(baseFee);
+    }
+    // Add fallback for any missing services
+    const missingCount = input.serviceIds.length - serviceDefs.length;
+    if (missingCount > 0) {
+      perUnitFeePaise += BigInt(1500000) * BigInt(missingCount);
+    }
+
     const totalValuePaise =
       (perUnitFeePaise * BigInt(input.unitCount) * BigInt(100 - input.discountPct)) /
       BigInt(100);

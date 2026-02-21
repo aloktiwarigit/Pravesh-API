@@ -5,6 +5,7 @@
 // ============================================================
 
 import { PrismaClient } from '@prisma/client';
+import { logger } from '../../utils/logger';
 
 export interface BulkServiceCreatePayload {
   bulkRequestId: string;
@@ -98,9 +99,9 @@ export async function handleBulkServiceCreate(
           // });
         } catch (error) {
           failedCount++;
-          console.error(
-            `Failed to create SR for unit ${unit.unitNumber}, service ${serviceId}:`,
-            error
+          logger.error(
+            { unitNumber: unit.unitNumber, serviceId, error },
+            'Failed to create SR for unit'
           );
         }
       }
