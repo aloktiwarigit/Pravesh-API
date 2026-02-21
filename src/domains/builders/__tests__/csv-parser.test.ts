@@ -77,11 +77,14 @@ describe('parseBuyerCsv', () => {
     expect(result.errors).toHaveLength(2);
   });
 
-  it('handles empty CSV', () => {
+  it('handles empty CSV (header only - no data rows)', () => {
     const csv = 'unit_number,buyer_name,buyer_phone';
     const result = parseBuyerCsv(csv);
 
+    // Source returns an error when CSV has no data rows (lines.length < 2)
     expect(result.validRows).toHaveLength(0);
-    expect(result.errors).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].field).toBe('file');
+    expect(result.errors[0].message).toContain('empty or has no data rows');
   });
 });

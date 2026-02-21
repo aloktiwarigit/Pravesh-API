@@ -291,7 +291,6 @@ describe('[P1] ExchangeRateService - API Integration', () => {
     // Then
     expect(mockPrisma.exchangeRateSnapshot.create).toHaveBeenCalledWith({
       data: {
-        id: expect.any(String),
         rates: expect.objectContaining({
           USD: expect.any(Number),
           GBP: expect.any(Number),

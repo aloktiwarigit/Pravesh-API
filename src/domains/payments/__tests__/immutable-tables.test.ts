@@ -1,6 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { Prisma } from '@prisma/client';
-import { immutableTablesExtension } from '../immutable-tables.extension';
+import { immutableTablesQueryHandler } from '../immutable-tables.extension';
 
 describe('[P0] Immutable Tables Extension - Audit Trail Protection', () => {
   let mockQuery: ReturnType<typeof vi.fn>;
@@ -10,17 +9,13 @@ describe('[P0] Immutable Tables Extension - Audit Trail Protection', () => {
     // Mock the query function
     mockQuery = vi.fn((args) => Promise.resolve({ id: 'test-result' }));
 
-    // Extract the query handler from the extension
-    const extension = immutableTablesExtension as any;
-    const queryHandler = extension.query.$allOperations;
-
-    // Create a wrapper that calls the extension's query handler
-    extensionQuery = (params: {
+    // Create an async wrapper so synchronous throws become rejected promises
+    extensionQuery = async (params: {
       model?: string;
       operation: string;
       args?: any;
     }) => {
-      return queryHandler({
+      return immutableTablesQueryHandler({
         model: params.model,
         operation: params.operation,
         args: params.args || {},

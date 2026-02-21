@@ -14,7 +14,7 @@ export class ReconciliationService {
    *
    * Story 4.8 AC1-AC3
    */
-  async runDailyReconciliation(cityId: string, date: Date) {
+  async runDailyReconciliation(tenantId: string, date: Date) {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(date);
@@ -23,39 +23,43 @@ export class ReconciliationService {
     // Get all successful payments for the day
     const payments = await this.prisma.payment.findMany({
       where: {
-        status: 'paid',
+        tenantId,
+        status: 'SUCCESS',
         paidAt: { gte: startOfDay, lte: endOfDay },
       },
     });
 
-    const totalPaymentsPaise = payments.reduce((sum, p) => sum + p.amountPaise, 0);
+    const totalPaymentsPaise = payments.reduce(
+      (sum: bigint, p: { amountPaise: bigint }) => sum + p.amountPaise,
+      0n,
+    );
 
     // Get all cash receipts for the day
     const cashReceipts = await this.prisma.cashReceipt.findMany({
       where: {
-        cityId,
+        cityId: tenantId,
         createdAt: { gte: startOfDay, lte: endOfDay },
       },
       select: { amountPaise: true },
     });
 
     const totalCashReceiptsPaise = cashReceipts.reduce(
-      (sum, r) => sum + Number(r.amountPaise),
-      0,
+      (sum: bigint, r: { amountPaise: bigint }) => sum + r.amountPaise,
+      0n,
     );
 
     const discrepancyPaise = totalPaymentsPaise - totalCashReceiptsPaise;
 
-    const status = discrepancyPaise === 0
+    const status = discrepancyPaise === 0n
       ? 'MATCHED'
-      : discrepancyPaise > 0
+      : discrepancyPaise > 0n
         ? 'SHORTAGE'
         : 'EXCESS';
 
     // Create reconciliation log
     const log = await this.prisma.cashReconciliationLog.create({
       data: {
-        cityId,
+        cityId: tenantId,
         reconciliationDate: startOfDay,
         totalPaymentsPaise,
         totalCashReceiptsPaise,

@@ -23,6 +23,58 @@ const UPDATE_RESTRICTED_FIELDS = {
 };
 
 /**
+ * Core query handler that enforces immutability rules.
+ * Exported separately to allow direct unit testing without needing a live Prisma client.
+ */
+export function immutableTablesQueryHandler({
+  model,
+  operation,
+  args,
+  query,
+}: {
+  model?: string;
+  operation: string;
+  args: unknown;
+  query: (args: unknown) => Promise<unknown>;
+}): Promise<unknown> {
+  // Block all DELETE operations on immutable tables
+  if (model && FULLY_IMMUTABLE_MODELS.includes(model)) {
+    if (operation === 'delete' || operation === 'deleteMany') {
+      throw new Error(
+        `DELETE operation is not allowed on immutable table: ${model}. ` +
+        'This table is append-only per NFR42.',
+      );
+    }
+    if (operation === 'update' || operation === 'updateMany') {
+      throw new Error(
+        `UPDATE operation is not allowed on immutable table: ${model}. ` +
+        'This table is append-only per NFR42.',
+      );
+    }
+  }
+
+  // For Payment model, block updates to financial fields
+  if (model === 'Payment' && (operation === 'update' || operation === 'updateMany')) {
+    const restrictedFields = UPDATE_RESTRICTED_FIELDS.Payment;
+    const data = (args as { data?: Record<string, unknown> }).data;
+
+    if (data) {
+      for (const field of restrictedFields) {
+        if (field in data) {
+          throw new Error(
+            `Cannot update immutable field '${field}' on Payment table. ` +
+            'Financial data is append-only per NFR42. ' +
+            'Use payment_state_changes for status transitions.',
+          );
+        }
+      }
+    }
+  }
+
+  return query(args);
+}
+
+/**
  * Creates a Prisma extension that enforces immutability on payment tables.
  * Attach this to the Prisma client via prisma.$extends(immutableTablesExtension).
  */
@@ -30,41 +82,7 @@ export const immutableTablesExtension = Prisma.defineExtension({
   name: 'immutable-payment-tables',
   query: {
     $allOperations({ model, operation, args, query }) {
-      // Block all DELETE operations on immutable tables
-      if (model && FULLY_IMMUTABLE_MODELS.includes(model)) {
-        if (operation === 'delete' || operation === 'deleteMany') {
-          throw new Error(
-            `DELETE operation is not allowed on immutable table: ${model}. ` +
-            'This table is append-only per NFR42.',
-          );
-        }
-        if (operation === 'update' || operation === 'updateMany') {
-          throw new Error(
-            `UPDATE operation is not allowed on immutable table: ${model}. ` +
-            'This table is append-only per NFR42.',
-          );
-        }
-      }
-
-      // For Payment model, block updates to financial fields
-      if (model === 'Payment' && (operation === 'update' || operation === 'updateMany')) {
-        const restrictedFields = UPDATE_RESTRICTED_FIELDS.Payment;
-        const data = (args as { data?: Record<string, unknown> }).data;
-
-        if (data) {
-          for (const field of restrictedFields) {
-            if (field in data) {
-              throw new Error(
-                `Cannot update immutable field '${field}' on Payment table. ` +
-                'Financial data is append-only per NFR42. ' +
-                'Use payment_state_changes for status transitions.',
-              );
-            }
-          }
-        }
-      }
-
-      return query(args);
+      return immutableTablesQueryHandler({ model, operation, args, query });
     },
   },
 });

@@ -49,6 +49,7 @@ describe('[P0] Authorization Middleware', () => {
       mockRequest.user = {
         id: 'user-789',
         role: 'CUSTOMER',
+        roles: ['CUSTOMER'],
         cityId: 'city-456',
       };
 
@@ -62,7 +63,7 @@ describe('[P0] Authorization Middleware', () => {
         success: false,
         error: {
           code: 'AUTH_INSUFFICIENT_ROLE',
-          message: 'Required role: AGENT. Current role: CUSTOMER',
+          message: 'Required role: AGENT. Current roles: CUSTOMER',
         },
       });
       expect(mockNext).not.toHaveBeenCalled();
@@ -120,6 +121,7 @@ describe('[P0] Authorization Middleware', () => {
       mockRequest.user = {
         id: 'customer-1',
         role: 'CUSTOMER',
+        roles: ['CUSTOMER'],
       };
 
       // When: Multiple roles but none match
@@ -132,7 +134,7 @@ describe('[P0] Authorization Middleware', () => {
         success: false,
         error: {
           code: 'AUTH_INSUFFICIENT_ROLE',
-          message: 'Required role: SUPER_ADMIN or AGENT or DEALER. Current role: CUSTOMER',
+          message: 'Required role: SUPER_ADMIN or AGENT or DEALER. Current roles: CUSTOMER',
         },
       });
       expect(mockNext).not.toHaveBeenCalled();
@@ -226,6 +228,7 @@ describe('[P0] Authorization Middleware', () => {
       mockRequest.user = {
         id: 'user-1',
         role: '',
+        roles: [''],
       };
 
       // When: Authorize requires any role
@@ -238,7 +241,7 @@ describe('[P0] Authorization Middleware', () => {
         success: false,
         error: {
           code: 'AUTH_INSUFFICIENT_ROLE',
-          message: 'Required role: AGENT or CUSTOMER. Current role: ',
+          message: 'Required role: AGENT or CUSTOMER. Current roles: ',
         },
       });
     });

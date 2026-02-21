@@ -13,17 +13,16 @@ vi.mock('@prisma/client', () => {
     serviceInstance: {
       findUnique: vi.fn(),
       findMany: vi.fn(),
+      count: vi.fn(),
     },
-    slaBreach: {
+    serviceStateHistory: {
+      findFirst: vi.fn(),
+    },
+    escalation: {
       findFirst: vi.fn(),
       create: vi.fn(),
       count: vi.fn(),
       findMany: vi.fn(),
-    },
-    slaWarning: {
-      findFirst: vi.fn(),
-      create: vi.fn(),
-      count: vi.fn(),
     },
   };
   return {
@@ -39,7 +38,7 @@ vi.mock('pg-boss', () => {
   };
 });
 
-vi.mock('./workflow-engine.js', () => ({
+vi.mock('../workflow-engine.js', () => ({
   getAllActiveStates: vi.fn(() => ['PENDING', 'IN_PROGRESS', 'AWAITING_DOCS']),
 }));
 

@@ -25,6 +25,7 @@ describe('[P0] Authentication Middleware', () => {
     mockRequest = {
       headers: {},
       user: undefined,
+      path: '/api/v1/test',
     };
 
     // Setup mock response
@@ -153,14 +154,15 @@ describe('[P0] Authentication Middleware', () => {
         mockNext
       );
 
-      // Then: req.user is populated
-      expect(mockRequest.user).toEqual({
+      // Then: req.user is populated (includes both role and roles array)
+      expect(mockRequest.user).toMatchObject({
         id: 'user-123',
         email: 'agent@example.com',
         role: 'AGENT',
         cityId: 'city-456',
         permissions: ['read:services', 'create:requests'],
       });
+      expect(mockRequest.user?.roles).toContain('AGENT');
       expect(mockNext).toHaveBeenCalled();
       expect(mockResponse.status).not.toHaveBeenCalled();
     });
@@ -185,7 +187,7 @@ describe('[P0] Authentication Middleware', () => {
       );
 
       // Then: cityId is undefined
-      expect(mockRequest.user).toEqual({
+      expect(mockRequest.user).toMatchObject({
         id: 'admin-001',
         email: 'admin@example.com',
         role: 'SUPER_ADMIN',
@@ -219,7 +221,7 @@ describe('[P0] Authentication Middleware', () => {
         success: false,
         error: {
           code: 'AUTH_NO_ROLE',
-          message: 'User has no assigned role',
+          message: 'User has no assigned role. Please contact admin for role assignment.',
         },
       });
       expect(mockNext).not.toHaveBeenCalled();
@@ -249,7 +251,7 @@ describe('[P0] Authentication Middleware', () => {
         success: false,
         error: {
           code: 'AUTH_NO_ROLE',
-          message: 'User has no assigned role',
+          message: 'User has no assigned role. Please contact admin for role assignment.',
         },
       });
     });
@@ -345,6 +347,7 @@ describe('[P0] Authentication Middleware', () => {
       expect(mockRequest.user).toEqual({
         id: 'dev-user-123',
         role: 'DEALER',
+        roles: ['DEALER'],
         cityId: 'dev-city-456',
         email: 'dealer@dev.local',
       });
@@ -415,6 +418,7 @@ describe('[P0] Authentication Middleware', () => {
       expect(mockRequest.user).toEqual({
         id: 'admin-dev',
         role: 'SUPER_ADMIN',
+        roles: ['SUPER_ADMIN'],
         cityId: undefined,
         email: undefined,
       });
