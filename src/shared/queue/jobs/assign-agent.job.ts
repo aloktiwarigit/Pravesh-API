@@ -17,9 +17,6 @@ export interface AssignAgentPayload {
  * AC6: Alerts ops when no agent available.
  * AC7: Logs all assignment decisions.
  * AC8: Idempotent - skips already-assigned requests.
- *
- * NOTE: agentAssignmentLog model does not exist in schema. Assignment decisions
- * are logged via console/logger instead.
  */
 export function registerAssignAgentJob(boss: any, prisma: PrismaClient) {
   // Register the handler
@@ -34,7 +31,7 @@ export function registerAssignAgentJob(boss: any, prisma: PrismaClient) {
       );
 
       // Find pending instances
-      const whereClause: any = { state: 'requested' };
+      const whereClause: Record<string, unknown> = { state: 'requested' };
       if (serviceInstanceId) {
         whereClause.id = serviceInstanceId;
       }
@@ -64,8 +61,8 @@ export function registerAssignAgentJob(boss: any, prisma: PrismaClient) {
         const result = await scoreAgents(
           prisma,
           instance.cityId,
-          0, // propertyLat - not available on ServiceInstance
-          0, // propertyLng - not available on ServiceInstance
+          instance.propertyLat ?? 0,
+          instance.propertyLng ?? 0,
         );
 
         if (result.selectedAgentId) {
@@ -87,9 +84,27 @@ export function registerAssignAgentJob(boss: any, prisma: PrismaClient) {
                 toState: 'assigned',
                 changedBy: 'system:assign-agent',
                 reason: result.reason,
-                metadata: { candidates: result.candidates } as any,
+                metadata: JSON.parse(JSON.stringify({ candidates: result.candidates })),
               },
             });
+
+            // Also log in AgentAssignmentLog for the first service request
+            const firstRequest = await tx.serviceRequest.findFirst({
+              where: { serviceInstanceId: instance.id },
+            });
+            if (firstRequest && result.selectedAgentId) {
+              await tx.agentAssignmentLog.create({
+                data: {
+                  serviceRequestId: firstRequest.id,
+                  assignedAgentId: result.selectedAgentId,
+                  assignedBy: 'system:assign-agent',
+                  assignmentMethod: 'auto',
+                  scoringSnapshot: JSON.parse(JSON.stringify({ candidates: result.candidates })),
+                  reason: result.reason,
+                  cityId: instance.cityId,
+                },
+              });
+            }
           });
 
           // AC5: Queue notification job
@@ -114,8 +129,6 @@ export function registerAssignAgentJob(boss: any, prisma: PrismaClient) {
           );
         } else {
           // AC6: No agent available - alert ops
-          // TODO: agentAssignmentLog model does not exist in schema.
-          // Logging via ServiceStateHistory instead.
           await prisma.serviceStateHistory.create({
             data: {
               serviceInstanceId: instance.id,
@@ -123,7 +136,7 @@ export function registerAssignAgentJob(boss: any, prisma: PrismaClient) {
               toState: instance.state, // no change
               changedBy: 'system:assign-agent',
               reason: `No agent available: ${result.reason}`,
-              metadata: { candidates: result.candidates } as any,
+              metadata: JSON.parse(JSON.stringify({ candidates: result.candidates })),
             },
           });
 

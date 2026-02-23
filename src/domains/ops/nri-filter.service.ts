@@ -1,13 +1,6 @@
 // Story 13-14: Ops NRI Dashboard Filter Service
 import { PrismaClient } from '@prisma/client';
 
-/**
- * TODO: Several features in this service depend on models/fields not yet in schema:
- * - serviceInstance does not have a `customer` relation or `isNri`/`hasVerifiedPoa` fields
- * - agentProfile model does not exist (Agent model is used instead)
- * - User model does not have a `dedicatedOpsContact` field
- * These are stubbed with TODO comments and return sensible defaults.
- */
 export class NriFilterService {
   constructor(private prisma: PrismaClient) {}
 
@@ -15,8 +8,6 @@ export class NriFilterService {
     status?: string;
     cityId?: string;
   }) {
-    // TODO: serviceInstance does not have customer.isNri relation in schema.
-    // Using serviceInstance with available filters only.
     return this.prisma.serviceInstance.findMany({
       where: {
         ...(filters?.status ? { state: filters.status } : {}),
@@ -27,30 +18,40 @@ export class NriFilterService {
   }
 
   async getNriSpecialistAgents(cityId: string) {
-    // TODO: Agent model does not have isNriSpecialist field.
-    // Returning active agents for the city as a fallback.
+    // Filter by 'nri' expertise tag for NRI specialists
     return this.prisma.agent.findMany({
-      where: { isActive: true, cityId },
+      where: {
+        isActive: true,
+        cityId,
+        expertiseTags: { has: 'nri' },
+      },
       select: { id: true, name: true, phone: true, expertiseTags: true },
     });
   }
 
   async assignDedicatedOpsContact(
-    _customerId: string,
-    _opsUserId: string
+    customerId: string,
+    opsUserId: string,
   ) {
-    // TODO: User model does not have dedicatedOpsContact field in schema.
-    // Stubbed - returns null until schema is extended.
-    return null;
+    // Store dedicated ops contact in user profile data
+    await this.prisma.user.update({
+      where: { id: customerId },
+      data: {
+        profileData: {
+          dedicatedOpsContact: opsUserId,
+          assignedAt: new Date().toISOString(),
+        },
+      },
+    });
+    return { customerId, opsUserId };
   }
 
   async getNriDashboardStats(cityId?: string) {
-    // TODO: serviceInstance does not have customer.isNri or hasVerifiedPoa fields.
-    // Returning zero counts as stubs.
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (cityId) where.cityId = cityId;
 
-    const [total, pending, active] =
+    // Query service requests for POA verification counts
+    const [total, pending, active, withPoa] =
       await Promise.all([
         this.prisma.serviceInstance.count({ where }),
         this.prisma.serviceInstance.count({
@@ -62,8 +63,14 @@ export class NriFilterService {
             state: { in: ['in_progress', 'assigned'] },
           },
         }),
+        this.prisma.serviceRequest.count({
+          where: {
+            ...(cityId ? { cityId } : {}),
+            hasVerifiedPoa: true,
+          },
+        }),
       ]);
 
-    return { total, pending, active, withPoa: 0 };
+    return { total, pending, active, withPoa };
   }
 }

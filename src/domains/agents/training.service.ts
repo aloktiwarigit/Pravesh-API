@@ -1,12 +1,5 @@
 // Story 3-18: Agent Training Service
 // Training modules, quizzes, and certification tracking for field agents.
-//
-// NOTE: The code references Prisma models (trainingCompletion) and fields
-// (title, titleHi, content, passingScorePercent, estimatedMinutes, category)
-// that do not yet exist in the schema. The actual schema has TrainingModule
-// (with moduleName, contentType, quizData, etc.) and TrainingProgress.
-// Prisma calls are cast through `any` to unblock the build until the schema
-// is updated.
 
 import { PrismaClient } from '@prisma/client';
 import { BusinessError } from '../../shared/errors/business-error.js';
@@ -46,9 +39,6 @@ export interface QuizSubmission {
   answers: number[]; // index of selected option per question
 }
 
-// Helper to access prisma models that may not yet exist in the generated client
-const db = (prisma: PrismaClient) => prisma as any;
-
 export class TrainingService {
   constructor(private prisma: PrismaClient) {}
 
@@ -61,18 +51,17 @@ export class TrainingService {
       orderBy: { sortOrder: 'asc' },
     });
 
-    // Get agent's completion status
-    // TODO: trainingCompletion model does not exist in schema yet; using TrainingProgress or stub
-    const completions = await db(this.prisma).trainingCompletion.findMany({
+    // Get agent's completion status via TrainingProgress
+    const completions = await this.prisma.trainingProgress.findMany({
       where: { agentId },
     });
 
     const completionMap = new Map(
-      completions.map((c: any) => [c.moduleId, c]),
+      completions.map((c) => [c.trainingModuleId, c]),
     );
 
-    return modules.map((mod: any) => {
-      const completion: any = completionMap.get(mod.id);
+    return modules.map((mod) => {
+      const completion = completionMap.get(mod.id);
       return {
         moduleId: mod.id,
         title: mod.title ?? mod.moduleName,
@@ -96,7 +85,7 @@ export class TrainingService {
    * Get full training module content.
    */
   async getModuleContent(moduleId: string): Promise<TrainingModuleContent> {
-    const mod: any = await this.prisma.trainingModule.findUnique({
+    const mod = await this.prisma.trainingModule.findUnique({
       where: { id: moduleId },
     });
 
@@ -108,16 +97,16 @@ export class TrainingService {
       );
     }
 
-    const content = (mod.content ?? mod.quizData ?? {}) as any;
+    const content = (mod.content ?? mod.quizData ?? {}) as Record<string, any>;
     return {
       moduleId: mod.id,
       title: mod.title ?? mod.moduleName,
       titleHi: mod.titleHi ?? mod.moduleName,
       description: mod.description ?? '',
-      descriptionHi: mod.descriptionHi ?? mod.description ?? '',
+      descriptionHi: (content as any).descriptionHi ?? mod.description ?? '',
       sections: content.sections || [],
       quiz: content.quiz || [],
-      passingScorePercent: mod.passingScorePercent ?? 70,
+      passingScorePercent: mod.passingScorePercent,
       estimatedMinutes: mod.estimatedMinutes ?? 0,
     };
   }
@@ -126,7 +115,7 @@ export class TrainingService {
    * Submit quiz answers and calculate score.
    */
   async submitQuiz(submission: QuizSubmission) {
-    const mod: any = await this.prisma.trainingModule.findUnique({
+    const mod = await this.prisma.trainingModule.findUnique({
       where: { id: submission.moduleId },
     });
 
@@ -138,7 +127,7 @@ export class TrainingService {
       );
     }
 
-    const content = (mod.content ?? mod.quizData ?? {}) as any;
+    const content = (mod.content ?? mod.quizData ?? {}) as Record<string, any>;
     const quiz: QuizQuestion[] = content.quiz || [];
 
     if (submission.answers.length !== quiz.length) {
@@ -163,39 +152,42 @@ export class TrainingService {
     });
 
     const scorePercent = Math.round((correct / quiz.length) * 100);
-    const passingScore = mod.passingScorePercent ?? 70;
+    const passingScore = mod.passingScorePercent;
     const passed = scorePercent >= passingScore;
 
-    // Upsert completion record
-    // TODO: trainingCompletion model does not exist; using `any` cast
-    const existing = await db(this.prisma).trainingCompletion.findFirst({
+    // Upsert completion record via TrainingProgress
+    const existing = await this.prisma.trainingProgress.findUnique({
       where: {
-        moduleId: submission.moduleId,
-        agentId: submission.agentId,
+        agentId_trainingModuleId: {
+          agentId: submission.agentId,
+          trainingModuleId: submission.moduleId,
+        },
       },
     });
 
-    let completion: any;
+    let completion;
     if (existing) {
-      completion = await db(this.prisma).trainingCompletion.update({
+      completion = await this.prisma.trainingProgress.update({
         where: { id: existing.id },
         data: {
-          scorePercent: Math.max(existing.scorePercent, scorePercent),
+          scorePercent: Math.max(existing.scorePercent ?? 0, scorePercent),
           passed: existing.passed || passed,
           attempts: existing.attempts + 1,
           lastAttemptAt: new Date(),
+          status: passed ? 'completed' : 'in_progress',
           ...(passed && !existing.passed ? { completedAt: new Date() } : {}),
         },
       });
     } else {
-      completion = await db(this.prisma).trainingCompletion.create({
+      completion = await this.prisma.trainingProgress.create({
         data: {
-          moduleId: submission.moduleId,
+          trainingModuleId: submission.moduleId,
           agentId: submission.agentId,
           scorePercent,
           passed,
           attempts: 1,
           lastAttemptAt: new Date(),
+          status: passed ? 'completed' : 'in_progress',
           ...(passed ? { completedAt: new Date() } : {}),
         },
       });
@@ -225,16 +217,21 @@ export class TrainingService {
       where: { isActive: true, isMandatory: true },
     });
 
-    // TODO: trainingCompletion model does not exist; using `any` cast
-    const completions = await db(this.prisma).trainingCompletion.findMany({
+    const completions = await this.prisma.trainingProgress.findMany({
       where: { agentId, passed: true },
     });
 
-    const mandatoryCompleted = await db(this.prisma).trainingCompletion.count({
+    // Get mandatory module IDs, then count how many the agent passed
+    const mandatoryModuleIds = await this.prisma.trainingModule.findMany({
+      where: { isActive: true, isMandatory: true },
+      select: { id: true },
+    });
+
+    const mandatoryCompleted = await this.prisma.trainingProgress.count({
       where: {
         agentId,
         passed: true,
-        module: { isMandatory: true },
+        trainingModuleId: { in: mandatoryModuleIds.map((m) => m.id) },
       },
     });
 
@@ -247,7 +244,7 @@ export class TrainingService {
       averageScore:
         completions.length > 0
           ? Math.round(
-              completions.reduce((sum: number, c: any) => sum + c.scorePercent, 0) /
+              completions.reduce((sum, c) => sum + (c.scorePercent ?? 0), 0) /
                 completions.length,
             )
           : 0,

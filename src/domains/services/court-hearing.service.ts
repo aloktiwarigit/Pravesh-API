@@ -34,8 +34,12 @@ export class CourtHearingService {
       },
     });
 
-    // TODO: serviceRequest model not in schema — phone resolved by notification worker
-    const recipientPhone: string | undefined = undefined;
+    // Resolve customer phone from the linked service request
+    const serviceRequest = await this.prisma.serviceRequest.findFirst({
+      where: { serviceInstanceId: params.serviceRequestId },
+      select: { customerPhone: true },
+    });
+    const recipientPhone: string | undefined = serviceRequest?.customerPhone ?? undefined;
 
     // Schedule 7-day reminder
     const sevenDaysBefore = new Date(params.hearingDate);

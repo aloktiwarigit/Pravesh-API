@@ -9,12 +9,15 @@ import {
   PAYMENT_PROCESSING_QUEUE,
   PaymentProcessingJobData,
 } from './payment-processing.job.js';
+import { PaymentStateChangeService } from './payment-state-change.service.js';
 
 export async function registerPaymentProcessingWorker(
   boss: any,
   prisma: PrismaClient,
   razorpay: RazorpayClient,
 ): Promise<void> {
+  const stateChangeService = new PaymentStateChangeService(prisma);
+
   await boss.work(
     PAYMENT_PROCESSING_QUEUE,
     { teamSize: 5, teamConcurrency: 2 },
@@ -36,12 +39,12 @@ export async function registerPaymentProcessingWorker(
         const razorpayPayment = await razorpay.fetchPayment(data.razorpayPaymentId);
 
         if (razorpayPayment.status === 'captured') {
-          await handlePaymentSuccess(prisma, data, attemptNumber);
+          await handlePaymentSuccess(prisma, stateChangeService, data, attemptNumber);
           return;
         }
 
         if (razorpayPayment.status === 'failed') {
-          await handleFinalFailure(prisma, data, 'Payment failed at Razorpay');
+          await handleFinalFailure(prisma, stateChangeService, data, 'Payment failed at Razorpay');
           return;
         }
 
@@ -55,7 +58,7 @@ export async function registerPaymentProcessingWorker(
 
         // Check if this is the last attempt
         if (attemptNumber >= 3) {
-          await handleFinalFailure(prisma, data, errorMessage);
+          await handleFinalFailure(prisma, stateChangeService, data, errorMessage);
           return; // Don't throw — job is considered handled
         }
 
@@ -68,6 +71,7 @@ export async function registerPaymentProcessingWorker(
 
 async function handlePaymentSuccess(
   prisma: PrismaClient,
+  stateChangeService: PaymentStateChangeService,
   data: PaymentProcessingJobData,
   attemptNumber: number,
 ): Promise<void> {
@@ -76,15 +80,25 @@ async function handlePaymentSuccess(
     data: { status: 'paid', paidAt: new Date() },
   });
 
-  // TODO: paymentStateChange model does not exist in schema yet.
-  // State change logging is stubbed until the model is added.
+  // Log state change
+  await stateChangeService.logStateChange({
+    paymentId: data.paymentId,
+    oldState: 'pending',
+    newState: 'paid',
+    changedBy: 'system:payment-worker',
+    metadata: { attemptNumber },
+  });
 
-  // TODO: serviceRequest model does not exist in schema.
-  // Use serviceInstance if applicable, or add model later.
+  // Update corresponding service request payment status
+  await prisma.serviceRequest.updateMany({
+    where: { id: data.serviceRequestId },
+    data: { paymentStatus: 'verified' },
+  });
 }
 
 async function handleFinalFailure(
   prisma: PrismaClient,
+  stateChangeService: PaymentStateChangeService,
   data: PaymentProcessingJobData,
   errorMessage: string,
 ): Promise<void> {
@@ -94,8 +108,14 @@ async function handleFinalFailure(
     data: { status: 'failed' },
   });
 
-  // TODO: paymentStateChange model does not exist in schema yet.
-  // State change logging is stubbed until the model is added.
+  // Log state change
+  await stateChangeService.logStateChange({
+    paymentId: data.paymentId,
+    oldState: 'pending',
+    newState: 'failed',
+    changedBy: 'system:payment-worker',
+    metadata: { errorMessage, retries: 3 },
+  });
 
   // AC5: Flag for ops review via OpsReviewTask
   await prisma.opsReviewTask.create({
@@ -116,14 +136,12 @@ async function logRetryAttempt(
   attemptNumber: number,
   errorMessage: string,
 ): Promise<void> {
-  // TODO: PaymentRetryLog model does not exist in schema yet.
-  // Retry logging is stubbed until the model is added.
-  const _backoffSeconds = Math.pow(2, attemptNumber); // 2, 4, 8
-  const _nextRetryAt = attemptNumber < 3
-    ? new Date(Date.now() + _backoffSeconds * 1000)
+  const backoffSeconds = Math.pow(2, attemptNumber); // 2, 4, 8
+  const nextRetryAt = attemptNumber < 3
+    ? new Date(Date.now() + backoffSeconds * 1000)
     : null;
 
-  // Log to PaymentAuditLog as a fallback
+  // Log to PaymentAuditLog for retry tracking
   await prisma.paymentAuditLog.create({
     data: {
       paymentId: data.paymentId,
@@ -132,7 +150,7 @@ async function logRetryAttempt(
       details: JSON.stringify({
         attemptNumber,
         errorMessage,
-        nextRetryAt: _nextRetryAt,
+        nextRetryAt,
       }),
     },
   });

@@ -18,17 +18,10 @@ const DISTANCE_WEIGHT = 0.6;
 const TASK_COUNT_WEIGHT = 0.4;
 const MAX_DISTANCE_KM = 50; // Normalize distances within 50km radius
 
-// Helper to access prisma models that may not yet exist in the generated client
-const db = (prisma: PrismaClient) => prisma as any;
-
 /**
  * Score eligible agents for a service request based on proximity and workload.
  * AC2: Agent eligibility - city match, active status, below max tasks.
  * AC3: Scoring formula - 0.6 * proximity + 0.4 * availability.
- *
- * NOTE: The Agent model in the schema does not have currentLat/currentLng fields
- * or an agentAssignmentLogs relation. The code uses `as any` casts to unblock
- * the build until the schema is updated.
  */
 export async function scoreAgents(
   prisma: PrismaClient,
@@ -37,9 +30,7 @@ export async function scoreAgents(
   propertyLng: number,
 ): Promise<ScoringResult> {
   // AC2: Find eligible agents
-  // NOTE: currentLat, currentLng, and _count.agentAssignmentLogs do not exist
-  // on the Agent model yet. Using `any` cast to unblock build.
-  const agents: any[] = await db(prisma).agent.findMany({
+  const agents = await prisma.agent.findMany({
     where: {
       cityId,
       isActive: true,
@@ -51,11 +42,7 @@ export async function scoreAgents(
       maxConcurrentTasks: true,
       _count: {
         select: {
-          agentAssignmentLogs: {
-            where: {
-              assignedAgentId: { not: null },
-            },
-          },
+          agentAssignmentLogs: true,
         },
       },
     },
@@ -71,18 +58,18 @@ export async function scoreAgents(
 
   // Filter agents at or above max task limit
   const eligible = agents.filter(
-    (a: any) => (a._count?.agentAssignmentLogs ?? 0) < a.maxConcurrentTasks,
+    (a) => a._count.agentAssignmentLogs < a.maxConcurrentTasks,
   );
 
   if (eligible.length === 0) {
     return {
-      candidates: agents.map((a: any) => ({
+      candidates: agents.map((a) => ({
         agentId: a.id,
         distance:
           a.currentLat && a.currentLng
             ? haversineDistance(propertyLat, propertyLng, a.currentLat, a.currentLng)
             : MAX_DISTANCE_KM,
-        taskCount: a._count?.agentAssignmentLogs ?? 0,
+        taskCount: a._count.agentAssignmentLogs,
         score: 0,
       })),
       selectedAgentId: null,
@@ -92,11 +79,11 @@ export async function scoreAgents(
 
   // AC3: Score eligible agents
   const maxTaskCount = Math.max(
-    ...eligible.map((a: any) => a._count?.agentAssignmentLogs ?? 0),
+    ...eligible.map((a) => a._count.agentAssignmentLogs),
     1,
   );
 
-  const candidates: AgentScore[] = eligible.map((agent: any) => {
+  const candidates: AgentScore[] = eligible.map((agent) => {
     const distance =
       agent.currentLat && agent.currentLng
         ? haversineDistance(
@@ -108,7 +95,7 @@ export async function scoreAgents(
         : MAX_DISTANCE_KM;
 
     const normalizedDistance = Math.min(distance / MAX_DISTANCE_KM, 1);
-    const normalizedTaskCount = (agent._count?.agentAssignmentLogs ?? 0) / maxTaskCount;
+    const normalizedTaskCount = agent._count.agentAssignmentLogs / maxTaskCount;
 
     const score =
       DISTANCE_WEIGHT * (1 - normalizedDistance) +
@@ -117,7 +104,7 @@ export async function scoreAgents(
     return {
       agentId: agent.id,
       distance: Math.round(distance * 100) / 100,
-      taskCount: agent._count?.agentAssignmentLogs ?? 0,
+      taskCount: agent._count.agentAssignmentLogs,
       score: Math.round(score * 1000) / 1000,
     };
   });

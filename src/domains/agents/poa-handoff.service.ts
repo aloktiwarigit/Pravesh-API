@@ -1,14 +1,7 @@
 // Story 13-8: POA-Linked Service Workflow Handoff Service
-//
-// NOTE: The code references a Prisma model (serviceRequest) that does not
-// yet exist in the schema. Prisma calls are cast through `any` to unblock
-// the build until the schema is updated.
 
 import { PrismaClient } from '@prisma/client';
 import PgBoss from 'pg-boss';
-
-// Helper to access prisma models that may not yet exist in the generated client
-const db = (prisma: PrismaClient) => prisma as any;
 
 export class PoaHandoffService {
   constructor(
@@ -17,19 +10,18 @@ export class PoaHandoffService {
   ) {}
 
   async getServiceWithPoaDetails(serviceRequestId: string) {
-    // TODO: serviceRequest model does not exist in schema yet
-    const sr = await db(this.prisma).serviceRequest.findUniqueOrThrow({
+    const sr = await this.prisma.serviceRequest.findUniqueOrThrow({
       where: { id: serviceRequestId },
     });
 
     return {
       ...sr,
-      poaInfo: (sr as any).hasVerifiedPoa
+      poaInfo: sr.hasVerifiedPoa
         ? {
-            attorneyName: (sr as any).authorizedAttorneyName,
-            attorneyPhone: (sr as any).authorizedAttorneyPhone,
-            attorneyWhatsapp: (sr as any).attorneyWhatsapp,
-            poaDocumentId: (sr as any).poaDocumentId,
+            attorneyName: sr.authorizedAttorneyName,
+            attorneyPhone: sr.authorizedAttorneyPhone,
+            attorneyWhatsapp: sr.attorneyWhatsapp,
+            poaDocumentId: sr.poaDocumentId,
           }
         : null,
     };
@@ -40,11 +32,11 @@ export class PoaHandoffService {
     message: string;
     actionRequired: string;
   }) {
-    const sr = await db(this.prisma).serviceRequest.findUniqueOrThrow({
+    const sr = await this.prisma.serviceRequest.findUniqueOrThrow({
       where: { id: params.serviceRequestId },
     });
 
-    const attorneyPhone = (sr as any).authorizedAttorneyPhone;
+    const attorneyPhone = sr.authorizedAttorneyPhone;
     if (!attorneyPhone) {
       throw new Error('No attorney phone on record');
     }
@@ -58,7 +50,7 @@ export class PoaHandoffService {
         actionRequired: params.actionRequired,
         serviceRequestId: params.serviceRequestId,
       },
-    } as any);
+    } as Record<string, unknown>);
   }
 
   async notifyNriCustomerMilestone(params: {
@@ -66,19 +58,19 @@ export class PoaHandoffService {
     milestone: string;
     description: string;
   }) {
-    const sr = await db(this.prisma).serviceRequest.findUniqueOrThrow({
+    const sr = await this.prisma.serviceRequest.findUniqueOrThrow({
       where: { id: params.serviceRequestId },
     });
 
     await this.boss.send('notification.send', {
       type: 'nri_milestone_update',
-      userId: (sr as any).customerId,
+      userId: sr.customerId,
       channel: 'whatsapp',
       data: {
         milestone: params.milestone,
         description: params.description,
       },
-    } as any);
+    } as Record<string, unknown>);
   }
 
   async flagPoaIssue(params: {
@@ -87,13 +79,23 @@ export class PoaHandoffService {
     notes: string;
     agentId: string;
   }) {
-    await db(this.prisma).serviceRequest.update({
+    // Store POA issue flags in metadata since these are rare edge-case flags
+    const sr = await this.prisma.serviceRequest.findUniqueOrThrow({
+      where: { id: params.serviceRequestId },
+    });
+
+    const existingMetadata = (sr.metadata as Record<string, unknown>) ?? {};
+    await this.prisma.serviceRequest.update({
       where: { id: params.serviceRequestId },
       data: {
-        attorneyUnresponsiveFlag:
-          params.issueType === 'unresponsive_attorney',
-        poaScopeIssueFlag:
-          params.issueType === 'insufficient_scope',
+        metadata: {
+          ...existingMetadata,
+          attorneyUnresponsiveFlag: params.issueType === 'unresponsive_attorney',
+          poaScopeIssueFlag: params.issueType === 'insufficient_scope',
+          poaIssueNotes: params.notes,
+          poaIssueFlaggedBy: params.agentId,
+          poaIssueFlaggedAt: new Date().toISOString(),
+        },
       },
     });
 
@@ -104,6 +106,6 @@ export class PoaHandoffService {
       issueType: params.issueType,
       notes: params.notes,
       agentId: params.agentId,
-    } as any);
+    } as Record<string, unknown>);
   }
 }

@@ -62,8 +62,10 @@ describe('DisputeService', () => {
     it('creates a dispute with status open for non-critical severity', async () => {
       const createdDispute = {
         id: 'dispute-001',
-        ...validCreatePayload,
+        serviceRequestId: 'sr-001',
+        agentId: 'agent-001',
         status: 'open',
+        metadata: {},
       };
       (mockPrisma.dispute.create as any).mockResolvedValue(createdDispute);
 
@@ -76,6 +78,7 @@ describe('DisputeService', () => {
             status: 'open',
             category: 'document_discrepancy',
             severity: 'medium',
+            agentId: 'agent-001',
           }),
         }),
       );
@@ -91,20 +94,26 @@ describe('DisputeService', () => {
         ...validCreatePayload,
         severity: 'critical',
       };
-      const createdDispute = { id: 'dispute-crit', ...criticalPayload, status: 'open' };
+      const createdDispute = {
+        id: 'dispute-crit',
+        serviceRequestId: 'sr-001',
+        agentId: 'agent-001',
+        status: 'open',
+        metadata: {},
+      };
       (mockPrisma.dispute.create as any).mockResolvedValue(createdDispute);
       (mockPrisma.dispute.update as any).mockResolvedValue({
         ...createdDispute,
-        status: 'escalated',
+        status: 'investigating',
       });
 
       await service.createDispute(criticalPayload);
 
-      // Should update status to escalated
+      // Should update status to investigating (auto-escalation)
       expect(mockPrisma.dispute.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'dispute-crit' },
-          data: expect.objectContaining({ status: 'escalated' }),
+          data: expect.objectContaining({ status: 'investigating' }),
         }),
       );
       // Should send critical escalation notification
@@ -114,29 +123,31 @@ describe('DisputeService', () => {
       );
     });
 
-    it('stores photoUrls as empty array when not provided', async () => {
+    it('stores photoUrls as empty array in metadata when not provided', async () => {
       const payloadWithoutPhotos = { ...validCreatePayload };
       delete (payloadWithoutPhotos as any).photoUrls;
 
-      const createdDispute = { id: 'dispute-002', ...payloadWithoutPhotos, status: 'open' };
+      const createdDispute = { id: 'dispute-002', status: 'open', metadata: {} };
       (mockPrisma.dispute.create as any).mockResolvedValue(createdDispute);
 
       await service.createDispute(payloadWithoutPhotos);
 
       expect(mockPrisma.dispute.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ photoUrls: [] }),
+          data: expect.objectContaining({
+            metadata: expect.objectContaining({ photoUrls: [] }),
+          }),
         }),
       );
     });
 
-    it('includes photoUrls and documentIds when provided', async () => {
+    it('includes photoUrls and documentIds in metadata when provided', async () => {
       const payloadWithPhotos: CreateDisputePayload = {
         ...validCreatePayload,
         photoUrls: ['https://storage.example.com/photo1.jpg'],
         documentIds: ['doc-001'],
       };
-      const createdDispute = { id: 'dispute-003', ...payloadWithPhotos, status: 'open' };
+      const createdDispute = { id: 'dispute-003', status: 'open', metadata: {} };
       (mockPrisma.dispute.create as any).mockResolvedValue(createdDispute);
 
       await service.createDispute(payloadWithPhotos);
@@ -144,8 +155,10 @@ describe('DisputeService', () => {
       expect(mockPrisma.dispute.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            photoUrls: ['https://storage.example.com/photo1.jpg'],
-            documentIds: ['doc-001'],
+            metadata: expect.objectContaining({
+              photoUrls: ['https://storage.example.com/photo1.jpg'],
+              documentIds: ['doc-001'],
+            }),
           }),
         }),
       );
@@ -159,8 +172,8 @@ describe('DisputeService', () => {
   describe('getAgentDisputes', () => {
     it('returns all disputes for an agent without status filter', async () => {
       const disputes = [
-        { id: 'dispute-001', raisedBy: 'agent-001', status: 'open' },
-        { id: 'dispute-002', raisedBy: 'agent-001', status: 'resolved' },
+        { id: 'dispute-001', agentId: 'agent-001', status: 'open' },
+        { id: 'dispute-002', agentId: 'agent-001', status: 'resolved' },
       ];
       (mockPrisma.dispute.findMany as any).mockResolvedValue(disputes);
 
@@ -169,7 +182,7 @@ describe('DisputeService', () => {
       expect(result).toHaveLength(2);
       expect(mockPrisma.dispute.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { raisedBy: 'agent-001' },
+          where: { agentId: 'agent-001' },
         }),
       );
     });
@@ -181,7 +194,7 @@ describe('DisputeService', () => {
 
       expect(mockPrisma.dispute.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { raisedBy: 'agent-001', status: 'open' },
+          where: { agentId: 'agent-001', status: 'open' },
         }),
       );
     });
@@ -194,7 +207,7 @@ describe('DisputeService', () => {
   describe('getServiceDisputes', () => {
     it('returns all disputes for a service request', async () => {
       const disputes = [
-        { id: 'dispute-001', serviceRequestId: 'sr-001', agent: { id: 'agent-001', name: 'Test' } },
+        { id: 'dispute-001', serviceRequestId: 'sr-001' },
       ];
       (mockPrisma.dispute.findMany as any).mockResolvedValue(disputes);
 
@@ -214,11 +227,11 @@ describe('DisputeService', () => {
   // ===========================================================================
 
   describe('getDisputeById', () => {
-    it('returns dispute with agent and comments included', async () => {
+    it('returns dispute with comments included', async () => {
       const dispute = {
         id: 'dispute-001',
-        title: 'Missing Sale Deed',
-        agent: { id: 'agent-001', name: 'Ramesh', phone: '9876543210' },
+        description: 'Missing Sale Deed',
+        agentId: 'agent-001',
         comments: [],
       };
       (mockPrisma.dispute.findUnique as any).mockResolvedValue(dispute);
@@ -226,7 +239,7 @@ describe('DisputeService', () => {
       const result = await service.getDisputeById('dispute-001');
 
       expect(result.id).toBe('dispute-001');
-      expect(result.agent).toBeDefined();
+      expect(result.comments).toBeDefined();
     });
 
     it('throws BUSINESS_DISPUTE_NOT_FOUND when dispute does not exist', async () => {
@@ -245,12 +258,12 @@ describe('DisputeService', () => {
 
   describe('addComment', () => {
     it('adds a comment to an existing dispute', async () => {
-      const dispute = { id: 'dispute-001', raisedBy: 'agent-001', status: 'open' };
+      const dispute = { id: 'dispute-001', agentId: 'agent-001', status: 'open' };
       const comment = {
         id: 'comment-001',
         disputeId: 'dispute-001',
         authorId: 'ops-001',
-        content: 'We are reviewing this.',
+        body: 'We are reviewing this.',
       };
       (mockPrisma.dispute.findUnique as any).mockResolvedValue(dispute);
       (mockPrisma.disputeComment.create as any).mockResolvedValue(comment);
@@ -263,8 +276,7 @@ describe('DisputeService', () => {
           data: expect.objectContaining({
             disputeId: 'dispute-001',
             authorId: 'ops-001',
-            authorRole: 'ops',
-            content: 'We are reviewing this.',
+            body: 'We are reviewing this.',
           }),
         }),
       );
@@ -288,7 +300,7 @@ describe('DisputeService', () => {
 
   describe('updateStatus', () => {
     it('updates dispute status and notifies the agent', async () => {
-      const dispute = { id: 'dispute-001', raisedBy: 'agent-001', status: 'open' };
+      const dispute = { id: 'dispute-001', agentId: 'agent-001', status: 'open' };
       const updatedDispute = { ...dispute, status: 'under_review' };
       (mockPrisma.dispute.findUnique as any).mockResolvedValue(dispute);
       (mockPrisma.dispute.update as any).mockResolvedValue(updatedDispute);
@@ -307,26 +319,29 @@ describe('DisputeService', () => {
       );
     });
 
-    it('sets escalatedAt when transitioning to escalated', async () => {
-      const dispute = { id: 'dispute-001', raisedBy: 'agent-001', status: 'open' };
-      (mockPrisma.dispute.findUnique as any).mockResolvedValue(dispute);
-      (mockPrisma.dispute.update as any).mockResolvedValue({ ...dispute, status: 'escalated' });
-
-      await service.updateStatus('dispute-001', 'escalated', 'ops-001');
-
-      expect(mockPrisma.dispute.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ escalatedAt: expect.any(Date) }),
-        }),
-      );
-    });
-
     it('sets resolvedAt and resolvedBy when resolving', async () => {
-      const dispute = { id: 'dispute-001', raisedBy: 'agent-001', status: 'under_review' };
+      const dispute = { id: 'dispute-001', agentId: 'agent-001', status: 'under_review' };
       (mockPrisma.dispute.findUnique as any).mockResolvedValue(dispute);
       (mockPrisma.dispute.update as any).mockResolvedValue({ ...dispute, status: 'resolved' });
 
       await service.updateStatus('dispute-001', 'resolved', 'ops-001');
+
+      expect(mockPrisma.dispute.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            resolvedAt: expect.any(Date),
+            resolvedBy: 'ops-001',
+          }),
+        }),
+      );
+    });
+
+    it('sets resolvedAt and resolvedBy when dismissing', async () => {
+      const dispute = { id: 'dispute-001', agentId: 'agent-001', status: 'open' };
+      (mockPrisma.dispute.findUnique as any).mockResolvedValue(dispute);
+      (mockPrisma.dispute.update as any).mockResolvedValue({ ...dispute, status: 'dismissed' });
+
+      await service.updateStatus('dispute-001', 'dismissed', 'ops-001');
 
       expect(mockPrisma.dispute.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -363,7 +378,7 @@ describe('DisputeService', () => {
     };
 
     it('resolves an open dispute and notifies the agent', async () => {
-      const dispute = { id: 'dispute-001', raisedBy: 'agent-001', status: 'open' };
+      const dispute = { id: 'dispute-001', agentId: 'agent-001', status: 'open' };
       const updatedDispute = { ...dispute, status: 'resolved' };
       (mockPrisma.dispute.findUnique as any).mockResolvedValue(dispute);
       (mockPrisma.dispute.update as any).mockResolvedValue(updatedDispute);
@@ -391,7 +406,7 @@ describe('DisputeService', () => {
     });
 
     it('throws BUSINESS_DISPUTE_ALREADY_CLOSED for already-resolved disputes', async () => {
-      const dispute = { id: 'dispute-001', raisedBy: 'agent-001', status: 'resolved' };
+      const dispute = { id: 'dispute-001', agentId: 'agent-001', status: 'resolved' };
       (mockPrisma.dispute.findUnique as any).mockResolvedValue(dispute);
 
       await expect(service.resolveDispute(resolvePayload)).rejects.toMatchObject({
@@ -401,7 +416,7 @@ describe('DisputeService', () => {
     });
 
     it('throws BUSINESS_DISPUTE_ALREADY_CLOSED for dismissed disputes', async () => {
-      const dispute = { id: 'dispute-001', raisedBy: 'agent-001', status: 'dismissed' };
+      const dispute = { id: 'dispute-001', agentId: 'agent-001', status: 'dismissed' };
       (mockPrisma.dispute.findUnique as any).mockResolvedValue(dispute);
 
       await expect(service.resolveDispute(resolvePayload)).rejects.toMatchObject({
@@ -419,7 +434,7 @@ describe('DisputeService', () => {
     });
 
     it('can dismiss a dispute with dismissed status', async () => {
-      const dispute = { id: 'dispute-001', raisedBy: 'agent-001', status: 'under_review' };
+      const dispute = { id: 'dispute-001', agentId: 'agent-001', status: 'under_review' };
       const dismissedDispute = { ...dispute, status: 'dismissed' };
       (mockPrisma.dispute.findUnique as any).mockResolvedValue(dispute);
       (mockPrisma.dispute.update as any).mockResolvedValue(dismissedDispute);

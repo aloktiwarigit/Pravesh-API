@@ -1,10 +1,6 @@
 // Story 3-17: Dispute Flagging Service
 // Agents flag issues during field operations (document discrepancies,
 // customer disputes, property boundary issues, etc.).
-//
-// NOTE: The code references Prisma models (dispute, disputeComment) that do
-// not yet exist in the schema. Prisma calls are cast through `any` to unblock
-// the build until the schema is updated.
 
 import { PrismaClient } from '@prisma/client';
 import PgBoss from 'pg-boss';
@@ -50,9 +46,6 @@ export interface ResolveDisputePayload {
   newStatus: 'resolved' | 'dismissed';
 }
 
-// Helper to access prisma models that may not yet exist in the generated client
-const db = (prisma: PrismaClient) => prisma as any;
-
 export class DisputeService {
   constructor(
     private prisma: PrismaClient,
@@ -63,30 +56,37 @@ export class DisputeService {
    * Create a dispute flag.
    */
   async createDispute(payload: CreateDisputePayload) {
-    // TODO: dispute model does not exist in schema yet
-    const dispute = await db(this.prisma).dispute.create({
+    const dispute = await this.prisma.dispute.create({
       data: {
-        taskId: payload.taskId,
         serviceRequestId: payload.serviceRequestId,
-        raisedBy: payload.agentId,
+        agentId: payload.agentId,
         cityId: payload.cityId,
         category: payload.category,
         severity: payload.severity,
-        title: payload.title,
         description: payload.description,
-        gpsLat: payload.gpsLat,
-        gpsLng: payload.gpsLng,
-        photoUrls: payload.photoUrls || [],
-        documentIds: payload.documentIds || [],
         status: 'open',
+        metadata: {
+          taskId: payload.taskId,
+          title: payload.title,
+          gpsLat: payload.gpsLat,
+          gpsLng: payload.gpsLng,
+          photoUrls: payload.photoUrls || [],
+          documentIds: payload.documentIds || [],
+        },
       },
     });
 
     // Auto-escalate critical disputes
     if (payload.severity === 'critical') {
-      await db(this.prisma).dispute.update({
+      await this.prisma.dispute.update({
         where: { id: dispute.id },
-        data: { status: 'escalated', escalatedAt: new Date() },
+        data: {
+          status: 'investigating',
+          metadata: {
+            ...(dispute.metadata as Record<string, unknown> ?? {}),
+            escalatedAt: new Date().toISOString(),
+          },
+        },
       });
 
       await this.boss.send('notification.send', {
@@ -95,7 +95,7 @@ export class DisputeService {
         serviceRequestId: payload.serviceRequestId,
         cityId: payload.cityId,
         severity: 'critical',
-      } as any);
+      } as Record<string, unknown>);
     } else {
       // Notify Ops of new dispute
       await this.boss.send('notification.send', {
@@ -104,7 +104,7 @@ export class DisputeService {
         serviceRequestId: payload.serviceRequestId,
         category: payload.category,
         severity: payload.severity,
-      } as any);
+      } as Record<string, unknown>);
     }
 
     return dispute;
@@ -114,10 +114,10 @@ export class DisputeService {
    * Get disputes for an agent.
    */
   async getAgentDisputes(agentId: string, status?: DisputeStatus) {
-    const where: any = { raisedBy: agentId };
+    const where: Record<string, unknown> = { agentId };
     if (status) where.status = status;
 
-    return db(this.prisma).dispute.findMany({
+    return this.prisma.dispute.findMany({
       where,
       orderBy: { createdAt: 'desc' },
     });
@@ -127,12 +127,9 @@ export class DisputeService {
    * Get disputes for a service request (Ops view).
    */
   async getServiceDisputes(serviceRequestId: string) {
-    return db(this.prisma).dispute.findMany({
+    return this.prisma.dispute.findMany({
       where: { serviceRequestId },
       orderBy: { createdAt: 'desc' },
-      include: {
-        agent: { select: { id: true, name: true } },
-      },
     });
   }
 
@@ -140,10 +137,9 @@ export class DisputeService {
    * Get a single dispute by ID.
    */
   async getDisputeById(disputeId: string) {
-    const dispute = await db(this.prisma).dispute.findUnique({
+    const dispute = await this.prisma.dispute.findUnique({
       where: { id: disputeId },
       include: {
-        agent: { select: { id: true, name: true, phone: true } },
         comments: { orderBy: { createdAt: 'asc' } },
       },
     });
@@ -168,7 +164,7 @@ export class DisputeService {
     authorRole: string,
     content: string,
   ) {
-    const dispute = await db(this.prisma).dispute.findUnique({
+    const dispute = await this.prisma.dispute.findUnique({
       where: { id: disputeId },
     });
 
@@ -180,13 +176,11 @@ export class DisputeService {
       );
     }
 
-    // TODO: disputeComment model does not exist in schema yet
-    return db(this.prisma).disputeComment.create({
+    return this.prisma.disputeComment.create({
       data: {
         disputeId,
         authorId,
-        authorRole,
-        content,
+        body: content,
       },
     });
   }
@@ -199,7 +193,7 @@ export class DisputeService {
     newStatus: DisputeStatus,
     updatedBy: string,
   ) {
-    const dispute = await db(this.prisma).dispute.findUnique({
+    const dispute = await this.prisma.dispute.findUnique({
       where: { id: disputeId },
     });
 
@@ -211,11 +205,10 @@ export class DisputeService {
       );
     }
 
-    const updated = await db(this.prisma).dispute.update({
+    const updated = await this.prisma.dispute.update({
       where: { id: disputeId },
       data: {
         status: newStatus,
-        ...(newStatus === 'escalated' ? { escalatedAt: new Date() } : {}),
         ...(newStatus === 'resolved' || newStatus === 'dismissed'
           ? { resolvedAt: new Date(), resolvedBy: updatedBy }
           : {}),
@@ -227,8 +220,8 @@ export class DisputeService {
       type: 'dispute_status_update',
       disputeId,
       newStatus,
-      agentId: dispute.raisedBy,
-    } as any);
+      agentId: dispute.agentId,
+    } as Record<string, unknown>);
 
     return updated;
   }
@@ -237,7 +230,7 @@ export class DisputeService {
    * Resolve or dismiss a dispute.
    */
   async resolveDispute(payload: ResolveDisputePayload) {
-    const dispute = await db(this.prisma).dispute.findUnique({
+    const dispute = await this.prisma.dispute.findUnique({
       where: { id: payload.disputeId },
     });
 
@@ -257,7 +250,7 @@ export class DisputeService {
       );
     }
 
-    const updated = await db(this.prisma).dispute.update({
+    const updated = await this.prisma.dispute.update({
       where: { id: payload.disputeId },
       data: {
         status: payload.newStatus,
@@ -270,9 +263,9 @@ export class DisputeService {
     await this.boss.send('notification.send', {
       type: 'dispute_resolved',
       disputeId: payload.disputeId,
-      agentId: dispute.raisedBy,
+      agentId: dispute.agentId,
       resolution: payload.resolution,
-    } as any);
+    } as Record<string, unknown>);
 
     return updated;
   }

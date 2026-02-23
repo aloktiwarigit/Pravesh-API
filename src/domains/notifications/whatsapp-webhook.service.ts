@@ -87,8 +87,7 @@ export class WhatsAppWebhookService {
 
           try {
             // Find user by phone number
-            // TODO: User model does not exist in Prisma schema yet. Using (prisma as any).
-            const user = await (this.prisma as any).user.findFirst({
+            const user = await this.prisma.user.findFirst({
               where: { phone },
               select: { id: true },
             });
@@ -115,15 +114,16 @@ export class WhatsAppWebhookService {
               // Store opt-out record even if user not found, so it can be
               // applied when the phone number is later associated with a user
               logger.warn({ phone }, 'WhatsApp STOP received but no user found for phone — logging for deferred processing');
-              // TODO: WhatsappOptOut model does not exist in Prisma schema yet. Using (prisma as any).
-              await (this.prisma as any).whatsappOptOut.create({
+              // Use NotificationOptOut with channel='whatsapp' for unmatched phones
+              // Store phone in userId field as a placeholder until user is matched
+              await this.prisma.notificationOptOut.create({
                 data: {
-                  phone,
+                  userId: `phone:${phone}`,
+                  channel: 'whatsapp',
                   optedOutAt: new Date(),
                 },
               }).catch(() => {
-                // Table may not exist yet; log and continue
-                logger.warn({ phone }, 'Could not persist WhatsApp opt-out record — whatsappOptOut table may not exist');
+                logger.warn({ phone }, 'Could not persist WhatsApp opt-out record');
               });
             }
           } catch (e) {

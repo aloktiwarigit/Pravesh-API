@@ -38,8 +38,7 @@ export class PaymentCorrectionService {
     });
 
     // Update correction fields on payment (these are metadata, not financial data)
-    // TODO: correctionNote, correctedBy, correctedAt fields do not exist in Payment schema yet.
-    await (this.prisma as any).payment.update({
+    await this.prisma.payment.update({
       where: { id: params.paymentId },
       data: {
         correctionNote: params.correctionReason,

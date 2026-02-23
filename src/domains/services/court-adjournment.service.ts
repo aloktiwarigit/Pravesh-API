@@ -50,12 +50,15 @@ export class CourtAdjournmentService {
       },
     });
 
-    // TODO: serviceRequest model not in schema — sending notification with serviceRequestId
-    const recipientPhone: string | undefined = undefined; // resolved by notification worker
+    // Resolve customer phone from the linked service request
+    const serviceRequest = await this.prisma.serviceRequest.findFirst({
+      where: { serviceInstanceId: originalHearing.serviceRequestId },
+      select: { customerPhone: true },
+    });
 
     await this.boss.send('notification.send', {
       type: 'court_hearing_adjourned',
-      phone: recipientPhone,
+      phone: serviceRequest?.customerPhone ?? undefined,
       serviceRequestId: originalHearing.serviceRequestId,
       data: {
         caseNumber: originalHearing.caseNumber,
@@ -77,7 +80,7 @@ export class CourtAdjournmentService {
     await this.scheduleReminders(
       newHearing.id,
       params.newHearingDate,
-      recipientPhone
+      serviceRequest?.customerPhone ?? undefined
     );
 
     // Alert Ops if adjournment count > 3
@@ -102,7 +105,6 @@ export class CourtAdjournmentService {
     serviceRequestId: string,
     newHearingDate: Date
   ) {
-    // TODO: serviceRequest model not in schema — extending SLA on serviceInstance if linked
     // Extend SLA deadline to 14 days after the new hearing date
     const newSlaDeadline = new Date(newHearingDate);
     newSlaDeadline.setDate(newSlaDeadline.getDate() + 14);

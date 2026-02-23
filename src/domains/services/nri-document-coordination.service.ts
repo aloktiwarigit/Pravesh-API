@@ -147,8 +147,7 @@ export class NriDocumentCoordinationService {
         customerId: submission.customerId,
       });
     } else {
-      // TODO: serviceRequest model not in schema — halt via workflow engine
-      // Trigger halt through notification/workflow job
+      // Trigger halt through workflow job
       await this.boss.send('workflow.halt', {
         serviceRequestId: submission.serviceRequestId,
         reason: 'halted_document_mismatch',

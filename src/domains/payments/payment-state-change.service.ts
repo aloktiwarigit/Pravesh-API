@@ -20,14 +20,13 @@ export class PaymentStateChangeService {
     changedBy: string;
     metadata?: Record<string, unknown>;
   }) {
-    // TODO: PaymentStateChange model does not exist in Prisma schema yet. Using (prisma as any).
-    return (this.prisma as any).paymentStateChange.create({
+    return this.prisma.paymentStateChange.create({
       data: {
         paymentId: params.paymentId,
         oldState: params.oldState,
         newState: params.newState,
         changedBy: params.changedBy,
-        metadata: params.metadata ? JSON.stringify(params.metadata) : undefined,
+        metadata: params.metadata ? JSON.parse(JSON.stringify(params.metadata)) : undefined,
       },
     });
   }
@@ -36,8 +35,7 @@ export class PaymentStateChangeService {
    * Gets the audit trail for a payment.
    */
   async getAuditTrail(paymentId: string) {
-    // TODO: PaymentStateChange model does not exist in Prisma schema yet. Using (prisma as any).
-    return (this.prisma as any).paymentStateChange.findMany({
+    return this.prisma.paymentStateChange.findMany({
       where: { paymentId },
       orderBy: { createdAt: 'asc' },
     });

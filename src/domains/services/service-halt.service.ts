@@ -111,8 +111,6 @@ export class ServiceHaltService {
       );
     }
 
-    // TODO: ServiceHalt model not in schema — halt info tracked in ServiceInstance metadata via workflow transition
-
     // Notify stakeholders
     await this.boss.send('notification.send', {
       type: 'service_halted',
@@ -189,8 +187,6 @@ export class ServiceHaltService {
       );
     }
 
-    // TODO: ServiceHalt model not in schema — resume tracked via workflow transition metadata
-
     // Notify stakeholders
     await this.boss.send('notification.send', {
       type: 'service_resumed',
@@ -203,7 +199,7 @@ export class ServiceHaltService {
 
   /**
    * Get halt history for a service instance.
-   * TODO: ServiceHalt model not in schema — returns halt-related state transitions instead
+   * Returns halt-related state transitions from ServiceStateHistory.
    */
   async getHaltHistory(serviceInstanceId: string) {
     return this.prisma.serviceStateHistory.findMany({

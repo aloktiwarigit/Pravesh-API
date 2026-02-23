@@ -18,6 +18,7 @@ import pinoHttp from 'pino-http';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { PgBoss } from 'pg-boss';
 import admin from 'firebase-admin';
+import { PrismaClient } from '@prisma/client';
 import { prisma } from './shared/prisma/client';
 import { createApiRouter, createServiceContainer } from './routes';
 import { registerEpic13Routes, registerEpic13Jobs } from './domains/epic13-routes';
@@ -251,8 +252,8 @@ setupSwagger(app);
 import { createAuthController } from './domains/auth/auth.controller';
 import { createRoleRequestController } from './domains/auth/role-request.controller';
 try {
-  app.use('/api/v1/auth', createAuthController(prisma as any));
-  app.use('/api/v1/auth/role-requests', createRoleRequestController(prisma as any));
+  app.use('/api/v1/auth', createAuthController(prisma as unknown as PrismaClient));
+  app.use('/api/v1/auth/role-requests', createRoleRequestController(prisma as unknown as PrismaClient));
   logger.info('Epic 1: Auth & Onboarding routes registered');
 } catch (err) {
   logger.error({ err }, 'Epic 1 auth routes failed to register — auth endpoints unavailable');
@@ -266,8 +267,8 @@ try {
 let services: ReturnType<typeof createServiceContainer> | undefined;
 
 try {
-  services = createServiceContainer(prisma as any);
-  app.use('/api/v1', createApiRouter(services, prisma as any, boss));
+  services = createServiceContainer(prisma as unknown as PrismaClient);
+  app.use('/api/v1', createApiRouter(services, prisma as unknown as PrismaClient, boss));
   logger.info('API v1 routes registered');
 } catch (err) {
   logger.error({ err }, 'API v1 routes failed to register — API endpoints unavailable');
@@ -277,7 +278,7 @@ try {
 try {
   const epic13Router = express.Router();
   epic13Router.use(authenticate);
-  registerEpic13Routes(epic13Router, prisma as any, boss);
+  registerEpic13Routes(epic13Router, prisma as unknown as PrismaClient, boss);
   app.use(epic13Router);
   logger.info('Epic 13: NRI Services, POA & Court Tracking routes registered');
 } catch (err) {
@@ -337,7 +338,7 @@ if (process.env.NODE_ENV !== 'test') {
 // they require the PgBoss schema (created by boss.start()).
 boss.start().then(async () => {
   logger.info('PgBoss started — registering background jobs');
-  await registerEpic13Jobs(boss, prisma as any);
+  await registerEpic13Jobs(boss, prisma as unknown as PrismaClient);
   logger.info('PgBoss background jobs now active');
 }).catch((err: unknown) => {
   logger.error({ err }, 'Failed to start PgBoss — background jobs will not work');

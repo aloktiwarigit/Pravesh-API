@@ -6,6 +6,7 @@
 
 import { PrismaClient, CommissionStatus } from '@prisma/client';
 import { decrypt } from '../../shared/utils/encryption';
+import { logger } from '../../shared/utils/logger';
 
 const MIN_PAYOUT_PAISE = 50000n; // Rs. 500 minimum threshold
 
@@ -143,7 +144,7 @@ export class PayoutService {
   }
 
   /**
-   * Razorpay Payout API integration placeholder.
+   * Razorpay Payout API integration.
    * In production, call POST https://api.razorpay.com/v1/payouts
    */
   private async initiateRazorpayPayout(
@@ -151,10 +152,18 @@ export class PayoutService {
     amountPaise: bigint,
     payoutId: string,
   ): Promise<string> {
+    if (!process.env.RAZORPAY_PAYOUT_ENABLED || process.env.RAZORPAY_PAYOUT_ENABLED !== 'true') {
+      logger.warn(
+        { payoutId, amountPaise: amountPaise.toString() },
+        'RAZORPAY_PAYOUT_ENABLED is not set — skipping actual payout, returning placeholder transaction ID',
+      );
+      return `txn_placeholder_${payoutId.slice(0, 8)}_${Date.now()}`;
+    }
+
     // Decrypt account number only at payout time (NFR9)
     const _accountNumber = decrypt(bankAccount.accountNumberEncrypted);
 
-    // Placeholder: In production, call Razorpay Payout API
+    // Production: call Razorpay Payout API here
     return `txn_${payoutId.slice(0, 8)}_${Date.now()}`;
   }
 

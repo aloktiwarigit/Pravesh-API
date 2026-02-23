@@ -40,8 +40,6 @@ export class CourtEventNotificationService {
       },
     });
 
-    // TODO: serviceRequest model not in schema — sending notification with serviceRequestId
-
     // Build deep link for in-app navigation
     const deepLink = `propertyagent://court-timeline/${params.serviceRequestId}`;
 
@@ -60,8 +58,6 @@ export class CourtEventNotificationService {
       },
     });
 
-    // TODO: NRI/POA attorney notification — resolved by notification worker using serviceRequestId
-
     // Mark notification sent
     await this.prisma.courtEvent.update({
       where: { id: event.id },
@@ -76,7 +72,6 @@ export class CourtEventNotificationService {
     message: string;
     agentId: string;
   }) {
-    // TODO: serviceRequest model not in schema — no validation needed here
     const event = await this.prisma.courtEvent.create({
       data: {
         id: crypto.randomUUID(),

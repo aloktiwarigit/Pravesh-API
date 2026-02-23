@@ -59,14 +59,12 @@ export class DealerManagementService {
 
   /**
    * Set city-specific commission tier configuration
-   * TODO: Dealer model does not have a tierConfig JSON field. Storing as metadata is not supported yet.
    */
   async setTierConfig(dealerId: string, tierConfig: DealerTierConfig) {
     dealerTierConfigSchema.parse(tierConfig);
-    // TODO: Dealer model does not have a tierConfig field.
-    // For now, just return the current dealer record.
-    return this.prisma.dealer.findUnique({
+    return this.prisma.dealer.update({
       where: { id: dealerId },
+      data: { tierConfig: tierConfig as any },
     });
   }
 
@@ -83,12 +81,12 @@ export class DealerManagementService {
   /**
    * Deactivate dealer for policy violations
    */
-  async deactivateDealer(dealerId: string, _reason: string) {
+  async deactivateDealer(dealerId: string, reason: string) {
     return this.prisma.dealer.update({
       where: { id: dealerId },
       data: {
         dealerStatus: 'SUSPENDED',
-        // TODO: Dealer model does not have a deactivationReason field.
+        deactivationReason: reason,
       },
     });
   }

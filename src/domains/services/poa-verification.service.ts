@@ -62,8 +62,18 @@ export class PoaVerificationService {
     });
 
     if (params.approved) {
-      // TODO: serviceRequest model not in schema — POA attorney info stored on PoaDocument itself
-      // The service instance linked via serviceRequestId can look up the verified POA
+      // Update linked service request with POA verification status
+      if (poa.serviceRequestId) {
+        await this.prisma.serviceRequest.update({
+          where: { id: poa.serviceRequestId },
+          data: {
+            hasVerifiedPoa: true,
+            authorizedAttorneyName: poa.attorneyName,
+            authorizedAttorneyPhone: poa.attorneyPhone,
+            poaDocumentId: poa.id,
+          },
+        });
+      }
 
       // Schedule expiry reminder (30 days before)
       const reminderDate = new Date(poa.validityEndDate);
@@ -114,7 +124,13 @@ export class PoaVerificationService {
         data: { status: 'expired' },
       });
 
-      // TODO: serviceRequest model not in schema — POA expiry flagged on PoaDocument status
+      // Clear verified POA flag on linked service request
+      if (poa.serviceRequestId) {
+        await this.prisma.serviceRequest.update({
+          where: { id: poa.serviceRequestId },
+          data: { hasVerifiedPoa: false },
+        });
+      }
 
       await this.boss.send('notification.send', {
         type: 'poa_expired',

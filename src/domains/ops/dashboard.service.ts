@@ -192,8 +192,13 @@ export class DashboardService {
           ...agentWhere,
         },
       }),
-      Promise.resolve(0), // AgentTask model not yet in schema
-      Promise.resolve(0), // AgentTask completed count not yet in schema
+      this.prisma.agentAssignmentLog.count({ where: taskWhere }),
+      this.prisma.serviceRequest.count({
+        where: {
+          ...taskWhere,
+          status: 'completed',
+        },
+      }),
     ]);
 
     const activeAgents = activeAgentsResult || totalAgents;

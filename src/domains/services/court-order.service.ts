@@ -47,7 +47,6 @@ export class CourtOrderService {
       });
     }
 
-    // TODO: serviceRequest model not in schema — using notification job with serviceRequestId
     // Send WhatsApp notification
     await this.boss.send('notification.send', {
       type: 'court_order_received',
@@ -73,7 +72,6 @@ export class CourtOrderService {
         trigger: 'court_order_favorable',
       });
     } else if (params.outcome === 'adverse') {
-      // TODO: serviceRequest model not in schema — sending notification for customer decision
       await this.boss.send('notification.send', {
         type: 'court_order_adverse_decision_required',
         serviceRequestId: params.serviceRequestId,
@@ -105,7 +103,6 @@ export class CourtOrderService {
         trigger: 'customer_appeals',
       });
     } else {
-      // TODO: serviceRequest model not in schema — trigger close via workflow
       await this.boss.send('workflow.advance', {
         serviceRequestId: order.serviceRequestId,
         trigger: 'customer_closes_case',

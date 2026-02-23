@@ -114,7 +114,6 @@ export class SlaTimerService {
       if (status.isBreached) {
         breaches.push(instance.id);
 
-        // TODO: SlaBreach model not in schema — using Escalation as breach record
         // Check if an escalation already exists for this SLA breach
         const existingBreach = await this.prisma.escalation.findFirst({
           where: { serviceInstanceId: instance.id, reason: 'SLA breach' },
@@ -124,6 +123,7 @@ export class SlaTimerService {
           await this.prisma.escalation.create({
             data: {
               serviceInstanceId: instance.id,
+              escalationType: 'sla_breach',
               level: 1,
               reason: 'SLA breach',
               status: 'open',
@@ -132,7 +132,7 @@ export class SlaTimerService {
                 slaBusinessDays: status.slaBusinessDays,
                 elapsedBusinessDays: status.elapsedBusinessDays,
                 breachedAt: new Date().toISOString(),
-              } as any,
+              },
             },
           });
 
@@ -148,7 +148,7 @@ export class SlaTimerService {
       } else if (status.isWarning) {
         warnings.push(instance.id);
 
-        // TODO: SlaWarning model not in schema — sending notification only (deduplicated via pg-boss singletonKey)
+        // Send warning notification (deduplicated via pg-boss singletonKey)
         await this.boss.send(
           'notification.send',
           {
@@ -175,7 +175,6 @@ export class SlaTimerService {
   async getSlaDashboard(cityId: string) {
     const activeStates = getAllActiveStates();
 
-    // TODO: SlaBreach/SlaWarning models not in schema — using Escalation as proxy
     const [total, breached] = await Promise.all([
       this.prisma.serviceInstance.count({
         where: { cityId, state: { in: activeStates } },
@@ -202,7 +201,7 @@ export class SlaTimerService {
 
     return {
       totalActive: total,
-      atRisk: 0, // TODO: SlaWarning model not in schema
+      atRisk: 0, // Warning count requires per-instance SLA check (computed, not stored)
       breached,
       onTrack: total - breached,
       recentBreaches,

@@ -58,7 +58,9 @@ describe('AuthService', () => {
         firebaseUid: 'fb-uid-001',
         phone: '+919876543210',
         displayName: 'Test User',
-        status: 'PENDING_ROLE',
+        status: 'ACTIVE',
+        roles: ['customer'],
+        primaryRole: 'customer',
         isNri: false,
       };
       mockPrisma.user.create.mockResolvedValue(newUser);
@@ -78,7 +80,9 @@ describe('AuthService', () => {
           firebaseUid: 'fb-uid-001',
           phone: '+919876543210',
           displayName: 'Test User',
-          status: 'PENDING_ROLE',
+          status: 'ACTIVE',
+          roles: ['customer'],
+          primaryRole: 'customer',
           isNri: false,
         }),
       });

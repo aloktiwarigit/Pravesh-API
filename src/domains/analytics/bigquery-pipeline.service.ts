@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { logger } from '../../shared/utils/logger';
 
 /**
  * Story 14-14: BigQuery Analytics Pipeline
@@ -33,6 +34,16 @@ export class BigQueryPipelineService {
     durationMs: number;
     errors: string[];
   }> {
+    if (!process.env.BIGQUERY_SYNC_ENABLED || process.env.BIGQUERY_SYNC_ENABLED !== 'true') {
+      logger.info('BIGQUERY_SYNC_ENABLED is not set — skipping BigQuery sync');
+      return {
+        tablesProcessed: 0,
+        totalRecords: 0,
+        durationMs: 0,
+        errors: [],
+      };
+    }
+
     const startTime = Date.now();
     let totalRecords = 0;
     const errors: string[] = [];

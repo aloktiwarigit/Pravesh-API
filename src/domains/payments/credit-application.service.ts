@@ -2,11 +2,6 @@
  * Credit application service for applying referral credits to payments.
  *
  * Story 4.12: Customer Referral Credits - Apply to Payment
- *
- * NOTE: CreditUsageLog model does not yet exist in the Prisma schema.
- * All creditUsageLog writes use the raw `tx` object which is mocked in tests.
- * CustomerReferralCredit exists in schema. serviceRequest is used (not serviceInstance)
- * because the credit/payment flow operates at the ServiceRequest level.
  */
 import { PrismaClient } from '@prisma/client';
 import { AppError } from '../../core/errors/app-error.js';
@@ -35,7 +30,7 @@ export class CreditApplicationService {
     serviceRequestId: string,
     applyCredits: boolean,
   ): Promise<PaymentBreakdown> {
-    const serviceRequest = await (this.prisma as any).serviceRequest.findUnique({
+    const serviceRequest = await this.prisma.serviceRequest.findUnique({
       where: { id: serviceRequestId },
     });
 
@@ -92,7 +87,7 @@ export class CreditApplicationService {
   ): Promise<void> {
     if (creditsToDeductPaise <= 0n) return;
 
-    await this.prisma.$transaction(async (tx: any) => {
+    await this.prisma.$transaction(async (tx) => {
       // Fetch available credits with row-level lock (FOR UPDATE), oldest first (FIFO)
       const credits: Array<{ id: string; creditAmountPaise: bigint; usedAmountPaise: bigint }> =
         await tx.$queryRaw`
@@ -118,10 +113,10 @@ export class CreditApplicationService {
 
         await tx.customerReferralCredit.update({
           where: { id: credit.id },
-          data: { usedAmountPaise: newUsed },
+          data: { usedAmountPaise: Number(newUsed) },
         });
 
-        // Log the usage (CreditUsageLog model pending schema migration)
+        // Log the usage
         await tx.creditUsageLog.create({
           data: {
             creditId: credit.id,
@@ -147,7 +142,7 @@ export class CreditApplicationService {
   }
 
   private async getCreditBalance(customerId: string): Promise<bigint> {
-    const result = await (this.prisma as any).customerReferralCredit.aggregate({
+    const result = await this.prisma.customerReferralCredit.aggregate({
       where: {
         referrerCustomerId: customerId,
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],

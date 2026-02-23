@@ -94,6 +94,7 @@ model City {
   customerReferralCredits  CustomerReferralCredit[]
   feeVariances             FeeVariance[]
   agentAssignmentLogs      AgentAssignmentLog[]
+  disputes                 Dispute[]
 
   @@unique([cityName, state])
   @@index([activeStatus])
@@ -252,7 +253,11 @@ model Agent {
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
+  currentLat        Float?   @map("current_lat")
+  currentLng        Float?   @map("current_lng")
+
   city City @relation(fields: [cityId], references: [id])
+  agentAssignmentLogs AgentAssignmentLog[]
 
   @@unique([userId])
   @@index([cityId, isActive])
@@ -278,6 +283,8 @@ model Dealer {
   logoUrl             String?      @map("logo_url")
   brandColor          String?      @map("brand_color")
   displayNameOptIn    Boolean      @default(false) @map("display_name_opt_in")
+  deactivationReason  String?      @map("deactivation_reason")
+  tierConfig          Json?        @map("tier_config") @db.JsonB
   cityId              String       @map("city_id")
   createdAt           DateTime     @default(now()) @map("created_at")
   updatedAt           DateTime     @updatedAt @map("updated_at")
@@ -586,20 +593,26 @@ model FranchiseRevenue {
 // ============================================================
 
 model TrainingModule {
-  id           String   @id @default(uuid())
-  cityId       String?  @map("city_id") // null = platform-wide
-  moduleName   String   @map("module_name")
-  description  String?
-  contentType  String   @map("content_type") // video, pdf, quiz
-  contentUrl   String?  @map("content_url")
-  quizData     Json?    @map("quiz_data") @db.JsonB
-  learningPath String?  @map("learning_path")
-  isMandatory  Boolean  @default(false) @map("is_mandatory")
-  sortOrder    Int      @default(0) @map("sort_order")
-  isActive     Boolean  @default(true) @map("is_active")
-  createdBy    String   @map("created_by")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id                  String   @id @default(uuid())
+  cityId              String?  @map("city_id") // null = platform-wide
+  moduleName          String   @map("module_name")
+  title               String?
+  titleHi             String?  @map("title_hi")
+  description         String?
+  contentType         String   @map("content_type") // video, pdf, quiz
+  contentUrl          String?  @map("content_url")
+  quizData            Json?    @map("quiz_data") @db.JsonB
+  learningPath        String?  @map("learning_path")
+  isMandatory         Boolean  @default(false) @map("is_mandatory")
+  sortOrder           Int      @default(0) @map("sort_order")
+  isActive            Boolean  @default(true) @map("is_active")
+  passingScorePercent Int      @default(70) @map("passing_score_percent")
+  estimatedMinutes    Int?     @map("estimated_minutes")
+  category            String?  // onboarding, compliance, product, skills
+  content             Json?    @db.JsonB // structured content (sections, slides, etc.)
+  createdBy           String   @map("created_by")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   city              City?              @relation(fields: [cityId], references: [id])
   trainingProgress  TrainingProgress[]
@@ -615,6 +628,10 @@ model TrainingProgress {
   trainingModuleId String    @map("training_module_id")
   status           String    @default("not_started") // not_started, in_progress, completed
   quizScore        Int?      @map("quiz_score")
+  scorePercent     Int?      @map("score_percent")
+  passed           Boolean   @default(false)
+  attempts         Int       @default(0)
+  lastAttemptAt    DateTime? @map("last_attempt_at")
   completedAt      DateTime? @map("completed_at")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
@@ -742,10 +759,14 @@ model Payment {
   foreignCurrencyCode    String?   @map("foreign_currency_code") // USD, GBP, AED, SGD, etc.
   exchangeRate           Decimal?  @map("exchange_rate") @db.Decimal(12, 6)
   paidAt                 DateTime? @map("paid_at")
+  correctionNote         String?   @map("correction_note")
+  correctedBy            String?   @map("corrected_by")
+  correctedAt            DateTime? @map("corrected_at")
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
 
-  wireTransfer WireTransfer?
+  wireTransfer    WireTransfer?
+  stateChanges    PaymentStateChange[]
 
   @@index([serviceRequestId])
   @@index([customerId])
@@ -2399,6 +2420,8 @@ model ServiceInstance {
   propertyValuePaise  BigInt?   @map("property_value_paise")
   propertyCity        String?   @map("property_city")
   propertyLocality    String?   @map("property_locality")
+  propertyLat         Float?    @map("property_lat")
+  propertyLng         Float?    @map("property_lng")
   metadata            Json?     @db.JsonB
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
@@ -2441,6 +2464,7 @@ model ServiceStateHistory {
 model Escalation {
   id                String    @id @default(uuid())
   serviceInstanceId String    @map("service_instance_id")
+  escalationType    String    @default("manual") @map("escalation_type") // sla_breach, sla_warning, manual
   level             Int       @default(1) // 1 = first level, 2 = second level
   reason            String
   status            String    @default("open") // open, acknowledged, resolved
@@ -2502,18 +2526,36 @@ model ServiceRequest {
   paymentMethod       String?   @map("payment_method") // cash, online, wire_transfer
   paymentStatus       String?   @map("payment_status") // pending, collected, verified, failed
   requestNumber       String?   @unique @map("request_number")
-  cashReceiptId       String?   @map("cash_receipt_id")
-  cityId              String    @map("city_id")
-  metadata            Json?     @db.JsonB
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  cashReceiptId             String?   @map("cash_receipt_id")
+  cityId                    String    @map("city_id")
+  // POA fields
+  hasVerifiedPoa            Boolean   @default(false) @map("has_verified_poa")
+  authorizedAttorneyName    String?   @map("authorized_attorney_name")
+  authorizedAttorneyPhone   String?   @map("authorized_attorney_phone")
+  attorneyWhatsapp          String?   @map("attorney_whatsapp")
+  poaDocumentId             String?   @map("poa_document_id")
+  // Customer info (denormalized for notifications)
+  customerName              String?   @map("customer_name")
+  customerPhone             String?   @map("customer_phone")
+  serviceName               String?   @map("service_name")
+  propertyAddress           String?   @map("property_address")
+  // Fee fields
+  serviceFeePaise           Int?      @map("service_fee_paise")
+  govtFeeEstimatePaise      Int?      @map("govt_fee_estimate_paise")
+  metadata                  Json?     @db.JsonB
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
 
-  serviceInstance     ServiceInstance      @relation(fields: [serviceInstanceId], references: [id])
-  city                City                 @relation(fields: [cityId], references: [id])
+  serviceInstance     ServiceInstance            @relation(fields: [serviceInstanceId], references: [id])
+  city                City                       @relation(fields: [cityId], references: [id])
   assignmentLogs      AgentAssignmentLog[]
   cashReceipts        CashReceipt[]
   feeVariances        FeeVariance[]
   checklists          Checklist[]
+  disputes            Dispute[]
+  statusLogs          ServiceRequestStatusLog[]
+  gpsEvidence         GpsEvidence[]
+  creditUsageLogs     CreditUsageLog[]
 
   @@index([serviceInstanceId])
   @@index([customerId])
@@ -2537,6 +2579,7 @@ model AgentAssignmentLog {
   createdAt           DateTime @default(now()) @map("created_at")
 
   serviceRequest      ServiceRequest @relation(fields: [serviceRequestId], references: [id])
+  agent               Agent          @relation(fields: [assignedAgentId], references: [id])
   city                City           @relation(fields: [cityId], references: [id])
 
   @@index([serviceRequestId])
@@ -3012,5 +3055,144 @@ model FranchiseTerritory {
   @@unique([franchiseId, cityId])
   @@index([cityId])
   @@map("franchise_territories")
+}
+
+// ============================================================
+// Production Readiness: New Models
+// ============================================================
+
+// Dispute — agent-flagged field issues
+model Dispute {
+  id                String    @id @default(uuid())
+  serviceRequestId  String    @map("service_request_id")
+  agentId           String    @map("agent_id")
+  category          String    // document_mismatch, boundary_dispute, access_denied, other
+  severity          String    @default("medium") // low, medium, high, critical
+  description       String    @db.Text
+  status            String    @default("open") // open, investigating, resolved, dismissed
+  resolvedBy        String?   @map("resolved_by")
+  resolvedAt        DateTime? @map("resolved_at")
+  resolution        String?   @db.Text
+  metadata          Json?     @db.JsonB
+  cityId            String    @map("city_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  serviceRequest    ServiceRequest @relation(fields: [serviceRequestId], references: [id])
+  city              City           @relation(fields: [cityId], references: [id])
+  comments          DisputeComment[]
+
+  @@index([serviceRequestId])
+  @@index([agentId])
+  @@index([status])
+  @@index([cityId])
+  @@map("disputes")
+}
+
+// DisputeComment — comments on disputes
+model DisputeComment {
+  id        String   @id @default(uuid())
+  disputeId String   @map("dispute_id")
+  authorId  String   @map("author_id")
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  dispute Dispute @relation(fields: [disputeId], references: [id])
+
+  @@index([disputeId])
+  @@map("dispute_comments")
+}
+
+// PaymentStateChange — immutable payment audit trail
+model PaymentStateChange {
+  id        String   @id @default(uuid())
+  paymentId String   @map("payment_id")
+  oldState  String   @map("old_state")
+  newState  String   @map("new_state")
+  changedBy String   @map("changed_by")
+  metadata  Json?    @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId])
+  @@index([createdAt])
+  @@map("payment_state_changes")
+}
+
+// WebhookEvent — Razorpay webhook idempotency
+model WebhookEvent {
+  id                 String    @id @default(uuid())
+  razorpayEventId    String    @unique @map("razorpay_event_id")
+  eventType          String    @map("event_type")
+  razorpayPaymentId  String    @map("razorpay_payment_id")
+  razorpayOrderId    String?   @map("razorpay_order_id")
+  payload            Json      @db.JsonB
+  status             String    @default("processing") // processing, processed, failed
+  errorMessage       String?   @map("error_message")
+  processedAt        DateTime? @map("processed_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  @@unique([razorpayPaymentId, eventType])
+  @@index([razorpayPaymentId])
+  @@index([status])
+  @@map("webhook_events")
+}
+
+// CreditUsageLog — referral credit usage tracking
+model CreditUsageLog {
+  id               String   @id @default(uuid())
+  creditId         String   @map("credit_id")
+  customerId       String   @map("customer_id")
+  serviceRequestId String   @map("service_request_id")
+  paymentId        String   @map("payment_id")
+  amountUsedPaise  BigInt   @map("amount_used_paise")
+  tenantId         String   @map("tenant_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  serviceRequest ServiceRequest @relation(fields: [serviceRequestId], references: [id])
+
+  @@index([creditId])
+  @@index([customerId])
+  @@index([serviceRequestId])
+  @@map("credit_usage_logs")
+}
+
+// GpsEvidence — field GPS evidence capture
+model GpsEvidence {
+  id               String   @id @default(uuid())
+  serviceRequestId String   @map("service_request_id")
+  agentId          String   @map("agent_id")
+  latitude         Float
+  longitude        Float
+  accuracy         Float?   // accuracy in meters
+  photoUrls        String[] @map("photo_urls")
+  capturedAt       DateTime @map("captured_at")
+  metadata         Json?    @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  serviceRequest ServiceRequest @relation(fields: [serviceRequestId], references: [id])
+
+  @@index([serviceRequestId])
+  @@index([agentId])
+  @@map("gps_evidence")
+}
+
+// ServiceRequestStatusLog — status transition history
+model ServiceRequestStatusLog {
+  id               String   @id @default(uuid())
+  serviceRequestId String   @map("service_request_id")
+  fromStatus       String   @map("from_status")
+  toStatus         String   @map("to_status")
+  changedBy        String   @map("changed_by")
+  reason           String?
+  metadata         Json?    @db.JsonB
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  serviceRequest ServiceRequest @relation(fields: [serviceRequestId], references: [id])
+
+  @@index([serviceRequestId])
+  @@index([createdAt])
+  @@map("service_request_status_logs")
 }
 

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { LawyerController } from '../domains/lawyers/lawyers.controller';
 import { LawyerService } from '../domains/lawyers/lawyers.service';
 import { prisma } from '../shared/prisma/client';
@@ -7,8 +8,7 @@ import { authorize } from '../middleware/authorize';
 const router = Router();
 
 // Initialize service and controller
-// Cast prisma as any because the extended client type is not directly assignable to PrismaClient
-const lawyerService = new LawyerService(prisma as any);
+const lawyerService = new LawyerService(prisma as unknown as PrismaClient);
 const lawyerController = new LawyerController(lawyerService);
 
 // ============================================================

@@ -40,24 +40,26 @@ describe('[P1] ReconciliationService - Daily Reconciliation', () => {
     const tenantId = 'tenant_123';
     const date = new Date('2025-01-15T12:00:00Z');
 
+    // Payment.amountPaise is Int (number in JS)
     mockPrisma.payment.findMany.mockResolvedValue([
-      { id: 'pay_1', amountPaise: 10000n, status: 'SUCCESS' },
-      { id: 'pay_2', amountPaise: 15000n, status: 'SUCCESS' },
-      { id: 'pay_3', amountPaise: 5000n, status: 'SUCCESS' },
+      { id: 'pay_1', amountPaise: 10000, status: 'SUCCESS' },
+      { id: 'pay_2', amountPaise: 15000, status: 'SUCCESS' },
+      { id: 'pay_3', amountPaise: 5000, status: 'SUCCESS' },
     ]);
 
+    // CashReceipt.amountPaise is stored as string (BigInt column)
     mockPrisma.cashReceipt.findMany.mockResolvedValue([
-      { id: 'rcpt_1', amountPaise: 10000n },
-      { id: 'rcpt_2', amountPaise: 20000n },
+      { id: 'rcpt_1', amountPaise: '10000' },
+      { id: 'rcpt_2', amountPaise: '20000' },
     ]);
 
     mockPrisma.cashReconciliationLog.create.mockResolvedValue({
       id: 'log_123',
-      tenantId,
+      cityId: tenantId,
       reconciliationDate: new Date('2025-01-15T00:00:00Z'),
-      totalPaymentsPaise: 30000n,
-      totalCashReceiptsPaise: 30000n,
-      discrepancyPaise: 0n,
+      totalPaymentsPaise: 30000,
+      totalCashReceiptsPaise: 30000,
+      discrepancyPaise: 0,
       status: 'MATCHED',
       paymentCount: 3,
       receiptCount: 2,
@@ -81,20 +83,20 @@ describe('[P1] ReconciliationService - Daily Reconciliation', () => {
     const date = new Date('2025-01-15T12:00:00Z');
 
     mockPrisma.payment.findMany.mockResolvedValue([
-      { id: 'pay_1', amountPaise: 50000n, status: 'SUCCESS' },
+      { id: 'pay_1', amountPaise: 50000, status: 'SUCCESS' },
     ]);
 
     mockPrisma.cashReceipt.findMany.mockResolvedValue([
-      { id: 'rcpt_1', amountPaise: 40000n }, // Short by 10000
+      { id: 'rcpt_1', amountPaise: '40000' }, // Short by 10000
     ]);
 
     mockPrisma.cashReconciliationLog.create.mockResolvedValue({
       id: 'log_123',
-      tenantId,
+      cityId: tenantId,
       reconciliationDate: new Date('2025-01-15T00:00:00Z'),
-      totalPaymentsPaise: 50000n,
-      totalCashReceiptsPaise: 40000n,
-      discrepancyPaise: 10000n, // Positive = shortage
+      totalPaymentsPaise: 50000,
+      totalCashReceiptsPaise: 40000,
+      discrepancyPaise: 10000, // Positive = shortage
       status: 'SHORTAGE',
       paymentCount: 1,
       receiptCount: 1,
@@ -116,20 +118,20 @@ describe('[P1] ReconciliationService - Daily Reconciliation', () => {
     const date = new Date('2025-01-15T12:00:00Z');
 
     mockPrisma.payment.findMany.mockResolvedValue([
-      { id: 'pay_1', amountPaise: 30000n, status: 'SUCCESS' },
+      { id: 'pay_1', amountPaise: 30000, status: 'SUCCESS' },
     ]);
 
     mockPrisma.cashReceipt.findMany.mockResolvedValue([
-      { id: 'rcpt_1', amountPaise: 35000n }, // Excess of 5000
+      { id: 'rcpt_1', amountPaise: '35000' }, // Excess of 5000
     ]);
 
     mockPrisma.cashReconciliationLog.create.mockResolvedValue({
       id: 'log_123',
-      tenantId,
+      cityId: tenantId,
       reconciliationDate: new Date('2025-01-15T00:00:00Z'),
-      totalPaymentsPaise: 30000n,
-      totalCashReceiptsPaise: 35000n,
-      discrepancyPaise: -5000n, // Negative = excess
+      totalPaymentsPaise: 30000,
+      totalCashReceiptsPaise: 35000,
+      discrepancyPaise: -5000, // Negative = excess
       status: 'EXCESS',
       paymentCount: 1,
       receiptCount: 1,
@@ -145,22 +147,22 @@ describe('[P1] ReconciliationService - Daily Reconciliation', () => {
     expect(result.discrepancyPaise).toBe('-5000'); // Negative discrepancy
   });
 
-  test('runDailyReconciliation handles BigInt arithmetic correctly', async () => {
-    // Given - large amounts to test BigInt handling
+  test('runDailyReconciliation handles large number arithmetic correctly', async () => {
+    // Given - large amounts
     const tenantId = 'tenant_123';
     const date = new Date('2025-01-15T12:00:00Z');
 
     mockPrisma.payment.findMany.mockResolvedValue([
-      { id: 'pay_1', amountPaise: 999999999999n },
-      { id: 'pay_2', amountPaise: 1n },
+      { id: 'pay_1', amountPaise: 999999999 },
+      { id: 'pay_2', amountPaise: 1 },
     ]);
 
     mockPrisma.cashReceipt.findMany.mockResolvedValue([
-      { id: 'rcpt_1', amountPaise: 500000000000n },
-      { id: 'rcpt_2', amountPaise: 500000000000n },
+      { id: 'rcpt_1', amountPaise: '500000000' },
+      { id: 'rcpt_2', amountPaise: '500000000' },
     ]);
 
-    mockPrisma.cashReconciliationLog.create.mockImplementation(async (args) => {
+    mockPrisma.cashReconciliationLog.create.mockImplementation(async (args: any) => {
       return {
         id: 'log_123',
         ...args.data,
@@ -173,9 +175,9 @@ describe('[P1] ReconciliationService - Daily Reconciliation', () => {
     // Then
     expect(mockPrisma.cashReconciliationLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        totalPaymentsPaise: 1000000000000n, // 999999999999 + 1
-        totalCashReceiptsPaise: 1000000000000n, // 500000000000 + 500000000000
-        discrepancyPaise: 0n, // Match
+        totalPaymentsPaise: 1000000000, // 999999999 + 1
+        totalCashReceiptsPaise: 1000000000, // 500000000 + 500000000
+        discrepancyPaise: 0, // Match
         status: 'MATCHED',
       }),
     });
@@ -188,16 +190,16 @@ describe('[P1] ReconciliationService - Daily Reconciliation', () => {
 
     mockPrisma.payment.findMany.mockResolvedValue([]);
     mockPrisma.cashReceipt.findMany.mockResolvedValue([
-      { id: 'rcpt_1', amountPaise: 10000n },
+      { id: 'rcpt_1', amountPaise: '10000' },
     ]);
 
     mockPrisma.cashReconciliationLog.create.mockResolvedValue({
       id: 'log_123',
-      tenantId,
+      cityId: tenantId,
       reconciliationDate: new Date('2025-01-15T00:00:00Z'),
-      totalPaymentsPaise: 0n,
-      totalCashReceiptsPaise: 10000n,
-      discrepancyPaise: -10000n,
+      totalPaymentsPaise: 0,
+      totalCashReceiptsPaise: 10000,
+      discrepancyPaise: -10000,
       status: 'EXCESS',
       paymentCount: 0,
       receiptCount: 1,
@@ -218,17 +220,17 @@ describe('[P1] ReconciliationService - Daily Reconciliation', () => {
     const date = new Date('2025-01-15T12:00:00Z');
 
     mockPrisma.payment.findMany.mockResolvedValue([
-      { id: 'pay_1', amountPaise: 10000n, status: 'SUCCESS' },
+      { id: 'pay_1', amountPaise: 10000, status: 'SUCCESS' },
     ]);
     mockPrisma.cashReceipt.findMany.mockResolvedValue([]);
 
     mockPrisma.cashReconciliationLog.create.mockResolvedValue({
       id: 'log_123',
-      tenantId,
+      cityId: tenantId,
       reconciliationDate: new Date('2025-01-15T00:00:00Z'),
-      totalPaymentsPaise: 10000n,
-      totalCashReceiptsPaise: 0n,
-      discrepancyPaise: 10000n,
+      totalPaymentsPaise: 10000,
+      totalCashReceiptsPaise: 0,
+      discrepancyPaise: 10000,
       status: 'SHORTAGE',
       paymentCount: 1,
       receiptCount: 0,
@@ -252,11 +254,11 @@ describe('[P1] ReconciliationService - Daily Reconciliation', () => {
     mockPrisma.cashReceipt.findMany.mockResolvedValue([]);
     mockPrisma.cashReconciliationLog.create.mockResolvedValue({
       id: 'log_123',
-      tenantId,
+      cityId: tenantId,
       reconciliationDate: new Date('2025-01-15T00:00:00Z'),
-      totalPaymentsPaise: 0n,
-      totalCashReceiptsPaise: 0n,
-      discrepancyPaise: 0n,
+      totalPaymentsPaise: 0,
+      totalCashReceiptsPaise: 0,
+      discrepancyPaise: 0,
       status: 'MATCHED',
       paymentCount: 0,
       receiptCount: 0,
@@ -265,10 +267,9 @@ describe('[P1] ReconciliationService - Daily Reconciliation', () => {
     // When
     await service.runDailyReconciliation(tenantId, date);
 
-    // Then
+    // Then — Payment query has no tenantId (field doesn't exist on Payment model)
     expect(mockPrisma.payment.findMany).toHaveBeenCalledWith({
       where: {
-        tenantId,
         status: 'SUCCESS',
         paidAt: {
           gte: expect.any(Date),
@@ -308,9 +309,9 @@ describe('[P1] ReconciliationService - Reconciliation Logs Retrieval', () => {
       {
         id: 'log_1',
         reconciliationDate: new Date('2025-01-15T00:00:00Z'),
-        totalPaymentsPaise: 10000n,
-        totalCashReceiptsPaise: 10000n,
-        discrepancyPaise: 0n,
+        totalPaymentsPaise: 10000,
+        totalCashReceiptsPaise: 10000,
+        discrepancyPaise: 0,
         status: 'MATCHED',
         paymentCount: 2,
         receiptCount: 2,
@@ -318,9 +319,9 @@ describe('[P1] ReconciliationService - Reconciliation Logs Retrieval', () => {
       {
         id: 'log_2',
         reconciliationDate: new Date('2025-01-16T00:00:00Z'),
-        totalPaymentsPaise: 20000n,
-        totalCashReceiptsPaise: 18000n,
-        discrepancyPaise: 2000n,
+        totalPaymentsPaise: 20000,
+        totalCashReceiptsPaise: 18000,
+        discrepancyPaise: 2000,
         status: 'SHORTAGE',
         paymentCount: 3,
         receiptCount: 2,
@@ -338,7 +339,7 @@ describe('[P1] ReconciliationService - Reconciliation Logs Retrieval', () => {
     expect(result[1].status).toBe('SHORTAGE');
   });
 
-  test('getReconciliationLogs converts BigInt to string', async () => {
+  test('getReconciliationLogs converts values to string', async () => {
     // Given
     const tenantId = 'tenant_123';
     const startDate = new Date('2025-01-01');
@@ -348,9 +349,9 @@ describe('[P1] ReconciliationService - Reconciliation Logs Retrieval', () => {
       {
         id: 'log_1',
         reconciliationDate: new Date('2025-01-15'),
-        totalPaymentsPaise: 123456789n,
-        totalCashReceiptsPaise: 987654321n,
-        discrepancyPaise: -864197532n,
+        totalPaymentsPaise: 123456789,
+        totalCashReceiptsPaise: 987654321,
+        discrepancyPaise: -864197532,
         status: 'EXCESS',
         paymentCount: 5,
         receiptCount: 3,

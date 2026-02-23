@@ -59,6 +59,7 @@ export class EscalationService {
       data: {
         serviceInstanceId: payload.serviceInstanceId,
         cityId: payload.cityId,
+        escalationType: payload.reason === 'sla_breach' ? 'sla_breach' : 'manual',
         reason: payload.description
           ? `${payload.reason}: ${payload.description}`
           : payload.reason,
@@ -69,7 +70,7 @@ export class EscalationService {
           raisedBy: payload.raisedBy,
           raisedByRole: payload.raisedByRole,
           currentLevel: targetLevel,
-        } as any,
+        },
       },
     });
 
@@ -106,8 +107,8 @@ export class EscalationService {
       return { escalated: false, reason: 'already handled' };
     }
 
-    const meta = escalation.metadata as any;
-    const currentLevel = meta?.currentLevel || ESCALATION_CHAIN[escalation.level - 1] || 'ops';
+    const meta = escalation.metadata as Record<string, unknown> | null;
+    const currentLevel = (meta?.currentLevel as string) || ESCALATION_CHAIN[escalation.level - 1] || 'ops';
     const currentIndex = ESCALATION_CHAIN.indexOf(
       currentLevel as EscalationLevel,
     );
@@ -129,18 +130,16 @@ export class EscalationService {
       data: {
         level: nextLevelIndex,
         metadata: {
-          ...(escalation.metadata as any || {}),
+          ...((escalation.metadata as Record<string, unknown>) ?? {}),
           currentLevel: nextLevel,
           escalatedAt: new Date().toISOString(),
-        } as any,
+        },
       },
     });
 
     if (updateResult.count === 0) {
       return { escalated: false, reason: 'already handled' };
     }
-
-    // TODO: EscalationHistory model not in schema — escalation level tracked in metadata
 
     await this.notifyEscalationTarget(
       escalationId,
@@ -184,9 +183,9 @@ export class EscalationService {
         status: 'acknowledged',
         acknowledgedAt: new Date(),
         metadata: {
-          ...(escalation.metadata as any || {}),
+          ...((escalation.metadata as Record<string, unknown>) ?? {}),
           acknowledgedBy,
-        } as any,
+        },
       },
     });
   }
@@ -218,18 +217,18 @@ export class EscalationService {
         resolvedBy,
         resolvedAt: new Date(),
         metadata: {
-          ...(escalation.metadata as any || {}),
+          ...((escalation.metadata as Record<string, unknown>) ?? {}),
           resolution,
-        } as any,
+        },
       },
     });
 
-    const meta = escalation.metadata as any;
+    const resolveMeta = escalation.metadata as Record<string, unknown> | null;
     // Notify original raiser
     await this.boss.send('notification.send', {
       type: 'escalation_resolved',
       escalationId,
-      raisedBy: meta?.raisedBy,
+      raisedBy: resolveMeta?.raisedBy,
       resolution,
     });
 
@@ -243,7 +242,7 @@ export class EscalationService {
     cityId: string,
     options?: { status?: string; level?: string },
   ) {
-    const where: any = { cityId };
+    const where: Record<string, unknown> = { cityId };
     if (options?.status) where.status = options.status;
     if (options?.level) where.level = ESCALATION_CHAIN.indexOf(options.level as EscalationLevel) + 1;
 

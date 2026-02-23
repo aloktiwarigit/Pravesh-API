@@ -62,12 +62,15 @@ export class PoaTemplateService {
       },
     });
 
-    // TODO: User model not in schema — using attorney details from params
-    // Customer info should be resolved by the caller or from Firebase Auth
+    // Resolve customer info from User model
+    const customer = await this.prisma.user.findUnique({
+      where: { id: params.customerId },
+      select: { displayName: true },
+    });
     const pdfBuffer = await this.generatePoaPdf({
       template: POA_TEMPLATES[params.serviceType],
-      principalName: 'Principal', // TODO: resolve customer name from auth system
-      principalAddress: '', // TODO: resolve customer address from auth system
+      principalName: customer?.displayName || 'Principal',
+      principalAddress: '', // Customer address is not stored on User; resolved at intake
       attorneyName: params.attorneyName,
       attorneyAddress: params.attorneyAddress,
       scopeOfAuthority: params.scopeOfAuthority,
