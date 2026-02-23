@@ -56,6 +56,12 @@ export class AiVerificationService {
   private client: DocumentAnalysisClient;
 
   constructor() {
+    if (!azureDocIntelligenceConfig.isConfigured) {
+      throw new Error(
+        'Azure Document Intelligence is not configured. ' +
+        'Set AZURE_DOC_INTELLIGENCE_ENDPOINT and AZURE_DOC_INTELLIGENCE_KEY environment variables.',
+      );
+    }
     this.client = new DocumentAnalysisClient(
       azureDocIntelligenceConfig.endpoint,
       new AzureKeyCredential(azureDocIntelligenceConfig.apiKey),

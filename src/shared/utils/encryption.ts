@@ -11,6 +11,12 @@ const ALGORITHM = 'aes-256-cbc';
 const IV_LENGTH = 16;
 
 if (!process.env.ENCRYPTION_KEY) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'ENCRYPTION_KEY is required in production. ' +
+      'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+    );
+  }
   logger.warn(
     'ENCRYPTION_KEY not set — encrypt/decrypt will throw when called. ' +
     'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
