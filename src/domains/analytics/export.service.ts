@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import type { InputJsonValue } from '@prisma/client/runtime/library';
 import { BusinessError } from '../../shared/errors/business-error';
 import * as ErrorCodes from '../../shared/errors/error-codes';
 
@@ -35,7 +36,7 @@ export class ExportService {
     cityId?: string;
     exportType: ExportType;
     format: ExportFormat;
-    filters?: Record<string, any>;
+    filters?: Record<string, unknown>;
   }) {
     // Validate role-based access to export type
     this.validateExportAccess(params.userRole, params.exportType);
@@ -47,7 +48,7 @@ export class ExportService {
         cityId: params.cityId || null,
         exportType: params.exportType,
         format: params.format,
-        filters: params.filters as any || null,
+        filters: (params.filters as InputJsonValue) ?? null,
         status: 'pending',
       },
     });
@@ -84,7 +85,7 @@ export class ExportService {
 
     try {
       // Generate the export data based on type
-      const data = await this.fetchExportData(job.exportType, job.cityId, job.filters as any);
+      const data = await this.fetchExportData(job.exportType, job.cityId, job.filters as Record<string, unknown> | undefined);
       const rowCount = Array.isArray(data) ? data.length : 0;
 
       // In production, this would:
@@ -158,7 +159,7 @@ export class ExportService {
   private async estimateRowCount(
     exportType: ExportType,
     cityId?: string | null,
-    filters?: Record<string, any>
+    filters?: Record<string, unknown>
   ): Promise<number> {
     // Simplified estimation
     switch (exportType) {
@@ -185,8 +186,8 @@ export class ExportService {
   private async fetchExportData(
     exportType: string,
     cityId?: string | null,
-    filters?: Record<string, any>
-  ): Promise<any[]> {
+    filters?: Record<string, unknown>
+  ): Promise<unknown[]> {
     const where: any = {};
     if (cityId) where.cityId = cityId;
 

@@ -325,7 +325,8 @@ model DealerKyc {
   id                String    @id @default(uuid())
   dealerId          String    @unique @map("dealer_id")
   fullName          String    @map("full_name")
-  panNumber         String    @map("pan_number")
+  panNumber         String    @map("pan_number")    // AES-256-CBC encrypted
+  panMasked         String?   @map("pan_masked")    // e.g. XXXXX1234X — safe to display
   panPhotoUrl       String    @map("pan_photo_url")
   aadhaarMasked     String    @map("aadhaar_masked")
   aadhaarPhotoUrl   String?   @map("aadhaar_photo_url")

@@ -122,8 +122,8 @@ export class WhatsAppWebhookService {
                   channel: 'whatsapp',
                   optedOutAt: new Date(),
                 },
-              }).catch(() => {
-                logger.warn({ phone }, 'Could not persist WhatsApp opt-out record');
+              }).catch((err) => {
+                logger.warn({ err, phone }, 'Whatsapp webhook processing failed');
               });
             }
           } catch (e) {

@@ -70,12 +70,17 @@ export class CityService {
 
   /**
    * Get city configuration with caching (AC6)
-   * Cache TTL: 1 hour. Refreshed by pg-boss scheduled job.
+   * Cache TTL: 5 minutes. Expired entries are automatically removed.
    */
   async getCityConfig(cityId: string) {
     const cached = this.cache.get(cityId);
     if (cached && cached.expiry > Date.now()) {
       return cached.data;
+    }
+
+    // Delete expired entry if it exists
+    if (cached) {
+      this.cache.delete(cityId);
     }
 
     const city = await this.prisma.city.findUnique({

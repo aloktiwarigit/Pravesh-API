@@ -47,6 +47,9 @@ function createMockPrisma() {
       create: vi.fn(),
       update: vi.fn(),
     },
+    serviceDefinition: {
+      findMany: vi.fn(),
+    },
     builderBroadcast: {
       count: vi.fn(),
       create: vi.fn(),
@@ -198,6 +201,8 @@ describe('BuildersService', () => {
   describe('createContract', () => {
     it('should generate unique contract number', async () => {
       (mockPrisma.builderContract.findFirst as any).mockResolvedValue(null);
+      (mockPrisma.builderContract.findUnique as any).mockResolvedValue(null);
+      (mockPrisma.serviceDefinition.findMany as any).mockResolvedValue([]);
       (mockPrisma.builderContract.create as any).mockImplementation(({ data }: any) =>
         Promise.resolve({ id: 'contract-1', ...data }),
       );

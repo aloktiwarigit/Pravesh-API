@@ -103,7 +103,7 @@ export class TrainingService {
       title: mod.title ?? mod.moduleName,
       titleHi: mod.titleHi ?? mod.moduleName,
       description: mod.description ?? '',
-      descriptionHi: (content as any).descriptionHi ?? mod.description ?? '',
+      descriptionHi: (content.descriptionHi as string | undefined) ?? mod.description ?? '',
       sections: content.sections || [],
       quiz: content.quiz || [],
       passingScorePercent: mod.passingScorePercent,

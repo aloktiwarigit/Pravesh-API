@@ -4,7 +4,7 @@
  * All amounts in BigInt paise. Minimum threshold: Rs. 500 (50000 paise).
  */
 
-import { PrismaClient, CommissionStatus } from '@prisma/client';
+import { PrismaClient, CommissionStatus, DealerBankAccount } from '@prisma/client';
 import { decrypt } from '../../shared/utils/encryption';
 import { logger } from '../../shared/utils/logger';
 
@@ -148,7 +148,7 @@ export class PayoutService {
    * In production, call POST https://api.razorpay.com/v1/payouts
    */
   private async initiateRazorpayPayout(
-    bankAccount: any,
+    bankAccount: DealerBankAccount,
     amountPaise: bigint,
     payoutId: string,
   ): Promise<string> {

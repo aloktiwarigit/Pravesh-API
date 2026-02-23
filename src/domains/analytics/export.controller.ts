@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { ExportService } from './export.service';
+import { ExportService, ExportType, ExportFormat } from './export.service';
 import { authorize } from '../../middleware/authorize';
 
 const requestExportSchema = z.object({
@@ -27,8 +27,8 @@ export function createExportController(service: ExportService): Router {
           userId: req.user!.id,
           userRole: req.user!.role,
           cityId: body.cityId,
-          exportType: body.exportType as any,
-          format: body.format as any,
+          exportType: body.exportType as ExportType,
+          format: body.format as ExportFormat,
           filters: body.filters,
         });
         res.status(201).json({ success: true, data: result });

@@ -47,6 +47,9 @@ export class DealerService {
     // Aadhaar masking: only store last 4 digits (NFR10)
     const aadhaarMasked = `XXXX-XXXX-${input.aadhaarLastFour}`;
     const encryptedPan = encrypt(input.panNumber);
+    // PAN mask: keep the 4 numeric digits visible (positions 5–8), mask the rest
+    // Format ABCDE1234F → XXXXX1234X
+    const panMasked = `XXXXX${input.panNumber.slice(5, 9)}X`;
     const encryptedAccount = encrypt(input.accountNumber);
 
     return this.prisma.$transaction(async (tx) => {
@@ -69,6 +72,7 @@ export class DealerService {
         update: {
           fullName: input.fullName,
           panNumber: encryptedPan,
+          panMasked,
           panPhotoUrl: input.panPhotoUrl,
           aadhaarMasked,
           aadhaarPhotoUrl: input.aadhaarPhotoUrl,
@@ -84,6 +88,7 @@ export class DealerService {
           dealerId: dealer.id,
           fullName: input.fullName,
           panNumber: encryptedPan,
+          panMasked,
           panPhotoUrl: input.panPhotoUrl,
           aadhaarMasked,
           aadhaarPhotoUrl: input.aadhaarPhotoUrl,

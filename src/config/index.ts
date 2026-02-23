@@ -17,14 +17,14 @@ const envSchema = z.object({
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
 
   // Firebase (optional in dev, required in production)
-  FIREBASE_PROJECT_ID: z.string().optional(),
-  FIREBASE_CLIENT_EMAIL: z.string().email().optional(),
-  FIREBASE_PRIVATE_KEY: z.string().optional(),
+  FIREBASE_PROJECT_ID: z.string().min(1, 'FIREBASE_PROJECT_ID must not be empty').optional(),
+  FIREBASE_CLIENT_EMAIL: z.string().email().min(1, 'FIREBASE_CLIENT_EMAIL must not be empty').optional(),
+  FIREBASE_PRIVATE_KEY: z.string().min(1, 'FIREBASE_PRIVATE_KEY must not be empty').optional(),
 
   // Razorpay (optional in dev)
-  RAZORPAY_KEY_ID: z.string().optional(),
-  RAZORPAY_KEY_SECRET: z.string().optional(),
-  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+  RAZORPAY_KEY_ID: z.string().min(1, 'RAZORPAY_KEY_ID must not be empty').optional(),
+  RAZORPAY_KEY_SECRET: z.string().min(1, 'RAZORPAY_KEY_SECRET must not be empty').optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().min(1, 'RAZORPAY_WEBHOOK_SECRET must not be empty').optional(),
 
   // BigQuery (optional)
   BIGQUERY_PROJECT_ID: z.string().optional(),

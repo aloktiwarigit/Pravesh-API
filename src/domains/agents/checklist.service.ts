@@ -3,8 +3,24 @@
 // a checklist template; agents mark steps, upload photos, capture GPS.
 
 import { PrismaClient } from '@prisma/client';
+import type { InputJsonValue } from '@prisma/client/runtime/library';
 import PgBoss from 'pg-boss';
 import { BusinessError } from '../../shared/errors/business-error.js';
+
+/**
+ * Shape of the `definition` JSONB field on ServiceDefinition.
+ * Only the fields consumed by the checklist service are declared here.
+ */
+interface ServiceDefinitionJson {
+  steps?: Array<{
+    name: string;
+    nameHi?: string;
+    description?: string;
+    descriptionHi?: string;
+    agentActions?: string[];
+    requiredDocuments?: Array<{ code: string }>;
+  }>;
+}
 
 export interface ChecklistTemplate {
   serviceCode: string;
@@ -52,14 +68,14 @@ export class ChecklistService {
 
     if (!definition) return null;
 
-    const def = definition.definition as any;
+    const def = definition.definition as ServiceDefinitionJson;
     const steps: ChecklistStepTemplate[] = (def.steps || []).map(
-      (step: any, index: number) => ({
+      (step, index: number) => ({
         index,
         title: step.name,
         titleHi: step.nameHi || step.name,
-        description: step.description,
-        descriptionHi: step.descriptionHi || step.description,
+        description: step.description ?? '',
+        descriptionHi: step.descriptionHi || step.description || '',
         requiresPhoto: (step.agentActions || []).includes('photo_evidence'),
         requiresGps: (step.agentActions || []).includes('gps_evidence'),
         requiresDocument: (step.requiredDocuments || []).length > 0,
@@ -100,7 +116,7 @@ export class ChecklistService {
         serviceCode,
         totalSteps: template.steps.length,
         completedSteps: 0,
-        templateSnapshot: template as any,
+        templateSnapshot: template as unknown as InputJsonValue,
       },
     });
 

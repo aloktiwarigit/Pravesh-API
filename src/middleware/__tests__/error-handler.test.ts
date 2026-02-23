@@ -8,6 +8,17 @@ import { ZodError, ZodIssue } from 'zod';
 import { errorHandler } from '../error-handler';
 import { BusinessError } from '../../shared/errors/business-error';
 
+vi.mock('../../shared/utils/logger', () => ({
+  logger: {
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
+import { logger } from '../../shared/utils/logger';
+
 describe('Error Handler Middleware', () => {
   let mockRequest: Partial<Request>;
   let mockResponse: Partial<Response>;
@@ -25,8 +36,8 @@ describe('Error Handler Middleware', () => {
 
     mockNext = vi.fn();
 
-    // Suppress console.error in tests
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Reset logger mock between tests
+    vi.mocked(logger.error).mockReset();
   });
 
   // ============================================================
@@ -290,7 +301,7 @@ describe('Error Handler Middleware', () => {
       });
     });
 
-    test('logs unknown errors to console', () => {
+    test('logs unknown errors via logger', () => {
       // Given
       const error = new Error('Unexpected error');
 
@@ -302,10 +313,10 @@ describe('Error Handler Middleware', () => {
         mockNext,
       );
 
-      // Then
-      expect(console.error).toHaveBeenCalledWith(
-        '[ErrorHandler] Unhandled error:',
-        error,
+      // Then: the error handler calls logger.error (not console.error)
+      expect(logger.error).toHaveBeenCalledWith(
+        { err: error, requestId: (mockRequest as Request).id },
+        'Unhandled error',
       );
     });
 
