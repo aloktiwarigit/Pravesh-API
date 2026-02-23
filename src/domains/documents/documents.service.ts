@@ -7,6 +7,7 @@ import { CreateDocumentInput, OverrideVerificationInput } from './documents.type
 const DOCUMENT_VERIFY_JOB = 'document.ai-verify';
 const DOCUMENT_DELIVERY_JOB = 'document.whatsapp-deliver';
 import { isCriticalDocument } from './document-config.js';
+import { logger } from '../../shared/utils/logger';
 
 export class DocumentsService {
   constructor(
@@ -167,6 +168,7 @@ export class DocumentsService {
       await bucket.file(doc.storagePath).delete();
     } catch (e) {
       // File may already be deleted from storage
+      logger.warn({ documentId: id, storagePath: doc.storagePath, err: e }, 'Storage file deletion failed; continuing with database record removal');
     }
 
     return this.prisma.document.delete({ where: { id } });
@@ -378,9 +380,45 @@ export class DocumentsService {
   // Private helpers
   // ================================================================
   private async _getRequiredDocuments(serviceInstanceId: string): Promise<any[]> {
-    // In production, this would query service_definitions JSONB
-    // For now return empty array - populated from service_definitions.definition.required_documents
-    return [];
+    const serviceInstance = await this.prisma.serviceInstance.findUnique({
+      where: { id: serviceInstanceId },
+      select: { serviceDefinitionId: true },
+    });
+
+    if (!serviceInstance) {
+      return [
+        { doc_type: 'identity_proof' },
+        { doc_type: 'property_document' },
+      ];
+    }
+
+    const serviceDefinition = await this.prisma.serviceDefinition.findUnique({
+      where: { id: serviceInstance.serviceDefinitionId },
+      select: { definition: true },
+    });
+
+    if (!serviceDefinition) {
+      return [
+        { doc_type: 'identity_proof' },
+        { doc_type: 'property_document' },
+      ];
+    }
+
+    const definition = serviceDefinition.definition as any;
+    const requiredDocuments: any[] =
+      definition?.required_documents ??
+      definition?.documents ??
+      definition?.steps?.flatMap((s: any) => s.requiredDocuments ?? s.required_documents ?? []) ??
+      [];
+
+    if (requiredDocuments.length === 0) {
+      return [
+        { doc_type: 'identity_proof' },
+        { doc_type: 'property_document' },
+      ];
+    }
+
+    return requiredDocuments;
   }
 
   private async _notifyCustomerOnAgentUpload(input: CreateDocumentInput, document: any) {

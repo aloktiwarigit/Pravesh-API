@@ -1,0 +1,2 @@
+[config]
+command = echo "No server-side build needed - node_modules included in zip"

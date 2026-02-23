@@ -15,6 +15,7 @@ import cors from 'cors';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import pinoHttp from 'pino-http';
+import type { IncomingMessage, ServerResponse } from 'http';
 import { PgBoss } from 'pg-boss';
 import admin from 'firebase-admin';
 import { prisma } from './shared/prisma/client';
@@ -81,16 +82,16 @@ const boss = new PgBoss(process.env.DATABASE_URL!);
 app.use(requestId);
 app.use(pinoHttp({
   logger,
-  genReqId: (req) => (req as express.Request).id,
-  customLogLevel(_req, res, err) {
+  genReqId: (req: IncomingMessage) => (req as express.Request).id as string,
+  customLogLevel(_req: IncomingMessage, res: ServerResponse, err: Error | undefined) {
     if (res.statusCode >= 500 || err) return 'error';
     if (res.statusCode >= 400) return 'warn';
     return 'info';
   },
-  customSuccessMessage(req, res) {
+  customSuccessMessage(req: IncomingMessage, res: ServerResponse) {
     return `${req.method} ${req.url} ${res.statusCode}`;
   },
-  customErrorMessage(req, res) {
+  customErrorMessage(req: IncomingMessage, res: ServerResponse) {
     return `${req.method} ${req.url} ${res.statusCode}`;
   },
 }));

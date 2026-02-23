@@ -95,7 +95,44 @@ export class DocumentCompletionService {
   }
 
   private async _getRequiredDocuments(serviceInstanceId: string): Promise<any[]> {
-    // In production, fetches from service_definitions JSONB
-    return [];
+    const serviceInstance = await this.prisma.serviceInstance.findUnique({
+      where: { id: serviceInstanceId },
+      select: { serviceDefinitionId: true },
+    });
+
+    if (!serviceInstance) {
+      return [
+        { doc_type: 'identity_proof' },
+        { doc_type: 'property_document' },
+      ];
+    }
+
+    const serviceDefinition = await this.prisma.serviceDefinition.findUnique({
+      where: { id: serviceInstance.serviceDefinitionId },
+      select: { definition: true },
+    });
+
+    if (!serviceDefinition) {
+      return [
+        { doc_type: 'identity_proof' },
+        { doc_type: 'property_document' },
+      ];
+    }
+
+    const definition = serviceDefinition.definition as any;
+    const requiredDocuments: any[] =
+      definition?.required_documents ??
+      definition?.documents ??
+      definition?.steps?.flatMap((s: any) => s.requiredDocuments ?? s.required_documents ?? []) ??
+      [];
+
+    if (requiredDocuments.length === 0) {
+      return [
+        { doc_type: 'identity_proof' },
+        { doc_type: 'property_document' },
+      ];
+    }
+
+    return requiredDocuments;
   }
 }

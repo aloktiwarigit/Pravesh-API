@@ -72,8 +72,18 @@ export class AuthService {
           primaryRole: user.primaryRole,
           cityId: user.cityId,
         });
-      } catch (claimsError) {
-        logger.warn({ err: claimsError }, 'Failed to sync Firebase claims on login');
+      } catch (firstError) {
+        logger.warn({ uid: data.firebaseUid, err: firstError }, 'Firebase claims sync failed, retrying...');
+        try {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          await admin.auth().setCustomUserClaims(data.firebaseUid, {
+            roles: user.roles,
+            primaryRole: user.primaryRole,
+            cityId: user.cityId,
+          });
+        } catch (retryError) {
+          logger.error({ uid: data.firebaseUid, err: retryError }, 'Firebase claims sync failed after retry');
+        }
       }
 
       return { user, isNewUser: false };
@@ -102,9 +112,18 @@ export class AuthService {
         roles: ['customer'],
         primaryRole: 'customer',
       });
-    } catch (claimsError) {
+    } catch (firstError) {
       // Non-blocking: user is created, claims sync can happen later via refreshClaims
-      logger.warn({ err: claimsError }, 'Failed to set initial Firebase claims');
+      logger.warn({ uid: data.firebaseUid, err: firstError }, 'Firebase claims sync failed, retrying...');
+      try {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await admin.auth().setCustomUserClaims(data.firebaseUid, {
+          roles: ['customer'],
+          primaryRole: 'customer',
+        });
+      } catch (retryError) {
+        logger.error({ uid: data.firebaseUid, err: retryError }, 'Firebase claims sync failed after retry');
+      }
     }
 
     return { user, isNewUser: true };

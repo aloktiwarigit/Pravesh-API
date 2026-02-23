@@ -68,7 +68,29 @@ export class CityDocumentRequirementService {
     });
 
     if (!record || !record.isActive) {
-      return [];
+      return [
+        {
+          documentName: 'identity_proof',
+          description: 'Government-issued ID',
+          isMandatory: true,
+          acceptedFormats: ['PDF', 'JPG', 'PNG', 'JPEG'],
+          maxFileSizeMb: 10,
+        },
+        {
+          documentName: 'property_document',
+          description: 'Property ownership proof',
+          isMandatory: true,
+          acceptedFormats: ['PDF', 'JPG', 'PNG', 'JPEG'],
+          maxFileSizeMb: 10,
+        },
+        {
+          documentName: 'address_proof',
+          description: 'Current address proof',
+          isMandatory: true,
+          acceptedFormats: ['PDF', 'JPG', 'PNG', 'JPEG'],
+          maxFileSizeMb: 10,
+        },
+      ];
     }
 
     return record.documents as unknown as DocumentRequirement[];

@@ -21,17 +21,18 @@ export class ReconciliationService {
     endOfDay.setHours(23, 59, 59, 999);
 
     // Get all successful payments for the day
+    // Note: Payment model has no tenantId/cityId field; filter by date and status only.
     const payments = await this.prisma.payment.findMany({
       where: {
-        tenantId,
         status: 'SUCCESS',
         paidAt: { gte: startOfDay, lte: endOfDay },
       },
     });
 
-    const totalPaymentsPaise = payments.reduce(
-      (sum: bigint, p: { amountPaise: bigint }) => sum + p.amountPaise,
-      0n,
+    // Payment.amountPaise is Int (number in TypeScript)
+    const totalPaymentsPaise: number = payments.reduce(
+      (sum: number, p: { amountPaise: number }) => sum + p.amountPaise,
+      0,
     );
 
     // Get all cash receipts for the day
@@ -43,18 +44,20 @@ export class ReconciliationService {
       select: { amountPaise: true },
     });
 
-    const totalCashReceiptsPaise = cashReceipts.reduce(
-      (sum: bigint, r: { amountPaise: bigint }) => sum + r.amountPaise,
-      0n,
+    // CashReceipt.amountPaise is String (BigInt stored as string); parse to number
+    const totalCashReceiptsPaise: number = cashReceipts.reduce(
+      (sum: number, r: { amountPaise: string }) => sum + Number(r.amountPaise),
+      0,
     );
 
-    const discrepancyPaise = totalPaymentsPaise - totalCashReceiptsPaise;
+    const discrepancyPaise: number = totalPaymentsPaise - totalCashReceiptsPaise;
 
-    const status = discrepancyPaise === 0n
-      ? 'MATCHED'
-      : discrepancyPaise > 0n
-        ? 'SHORTAGE'
-        : 'EXCESS';
+    const status =
+      discrepancyPaise === 0
+        ? 'MATCHED'
+        : discrepancyPaise > 0
+          ? 'SHORTAGE'
+          : 'EXCESS';
 
     // Create reconciliation log
     const log = await this.prisma.cashReconciliationLog.create({

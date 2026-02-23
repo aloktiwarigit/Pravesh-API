@@ -102,11 +102,27 @@ export class BuildersService {
         if (!existingRoles.includes('builder')) {
           existingRoles.push('builder');
         }
-        await admin.auth().setCustomUserClaims(builder.userId, {
-          ...existingClaims,
-          roles: existingRoles,
-          primaryRole: existingClaims.primaryRole || 'builder',
-        });
+
+        // Attempt to sync Firebase claims with retry
+        try {
+          await admin.auth().setCustomUserClaims(builder.userId, {
+            ...existingClaims,
+            roles: existingRoles,
+            primaryRole: existingClaims.primaryRole || 'builder',
+          });
+        } catch (firstError) {
+          logger.warn({ uid: builder.userId, err: firstError }, 'Firebase claims sync failed, retrying...');
+          try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await admin.auth().setCustomUserClaims(builder.userId, {
+              ...existingClaims,
+              roles: existingRoles,
+              primaryRole: existingClaims.primaryRole || 'builder',
+            });
+          } catch (retryError) {
+            logger.error({ uid: builder.userId, err: retryError }, 'Firebase claims sync failed after retry');
+          }
+        }
 
         // Also update User table
         await this.prisma.user.updateMany({
