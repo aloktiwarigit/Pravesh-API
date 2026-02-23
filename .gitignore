@@ -8,3 +8,9 @@ coverage/
 .prisma/
 deploy_temp2/
 deploy.zip
+deploy-slim.zip
+create-deploy-zip.js
+verify-zip.js
+build/
+logs.zip
+logs-extracted/
