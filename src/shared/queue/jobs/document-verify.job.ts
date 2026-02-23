@@ -1,12 +1,10 @@
 // Story 6.3 + 6.4: pg-boss job for AI document verification
 // Job name follows {domain}.{action} pattern per DA-4
-import { PrismaClient } from '@prisma/client';
 // AiVerificationService is loaded dynamically inside the handler to avoid
 // crashing at import time when @azure/ai-form-recognizer is not installed.
 import { getFirestore } from 'firebase-admin/firestore';
 import { logger } from '../../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../prisma/client';
 
 export const DOCUMENT_VERIFY_JOB = 'document.ai-verify';
 

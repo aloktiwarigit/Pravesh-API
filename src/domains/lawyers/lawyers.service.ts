@@ -1,5 +1,6 @@
 import { PrismaClient, LawyerStatus, Prisma } from '@prisma/client';
 import { BusinessError } from '../../shared/errors/business-error';
+import { encrypt } from '../../shared/utils/encryption';
 
 export class LawyerService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -644,12 +645,16 @@ export class LawyerService {
     bankName: string;
     upiId?: string;
   }) {
-    // In production, encrypt accountNumber with AES-256
+    const accountNumberMasked = `XXXX-${input.accountNumber.slice(-4)}`;
+    const accountNumberEncrypted = encrypt(input.accountNumber);
+
     return this.prisma.lawyerBankAccount.create({
       data: {
         lawyerId,
         accountHolderName: input.accountHolderName,
-        accountNumber: input.accountNumber,
+        accountNumber: accountNumberMasked, // store masked in legacy field
+        accountNumberEncrypted,
+        accountNumberMasked,
         ifscCode: input.ifscCode,
         bankName: input.bankName,
         upiId: input.upiId,
@@ -660,6 +665,17 @@ export class LawyerService {
   async getBankAccounts(lawyerId: string) {
     return this.prisma.lawyerBankAccount.findMany({
       where: { lawyerId },
+      select: {
+        id: true,
+        accountHolderName: true,
+        bankName: true,
+        ifscCode: true,
+        accountNumberMasked: true,
+        upiId: true,
+        isDefault: true,
+        isVerified: true,
+        createdAt: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
   }

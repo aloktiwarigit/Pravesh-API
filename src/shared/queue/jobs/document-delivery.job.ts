@@ -1,10 +1,8 @@
 // Story 6.9: pg-boss job for WhatsApp document delivery notification
 // Job name follows {domain}.{action} pattern per DA-4
-import { PrismaClient } from '@prisma/client';
 import { getStorage } from 'firebase-admin/storage';
 import { logger } from '../../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../prisma/client';
 
 export const DOCUMENT_DELIVERY_JOB = 'document.whatsapp-deliver';
 

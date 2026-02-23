@@ -1,10 +1,8 @@
 // Story 10.7: pg-boss scheduled job for support escalation SLA monitoring
 // Runs every 15 minutes via cron: */15 * * * *
 // Job name: support.sla-check per {domain}.{action} convention (DA-4)
-import { PrismaClient } from '@prisma/client';
 import { logger } from '../../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../prisma/client';
 
 export const SUPPORT_SLA_CHECK_JOB = 'support.sla-check';
 export const SLA_CHECK_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes

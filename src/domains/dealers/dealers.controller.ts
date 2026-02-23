@@ -19,6 +19,7 @@ import {
   pipelineFilterSchema,
   leaderboardQuerySchema,
 } from './dealers.validation';
+import { authorize } from '../../middleware/authorize';
 
 export function createDealerController(prisma: PrismaClient): Router {
   const router = Router();
@@ -89,7 +90,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealers/ops/kyc-queue — Ops: list pending KYC
-  router.get('/ops/kyc-queue', async (req: Request, res: Response) => {
+  router.get('/ops/kyc-queue', authorize('ops', 'super_admin'), async (req: Request, res: Response) => {
     try {
       const cityId = req.query.cityId as string | undefined;
       const queue = await prisma.dealerKyc.findMany({
@@ -107,7 +108,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   });
 
   // POST /api/v1/dealers/ops/:dealerId/approve — Ops approve KYC
-  router.post('/ops/:dealerId/approve', async (req: Request, res: Response) => {
+  router.post('/ops/:dealerId/approve', authorize('ops', 'super_admin'), async (req: Request, res: Response) => {
     try {
       const opsUserId = (req as any).user?.id;
       const cityId = req.query.cityId as string || '';
@@ -119,7 +120,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   });
 
   // POST /api/v1/dealers/ops/:dealerId/reject — Ops reject KYC
-  router.post('/ops/:dealerId/reject', async (req: Request, res: Response) => {
+  router.post('/ops/:dealerId/reject', authorize('ops', 'super_admin'), async (req: Request, res: Response) => {
     try {
       const opsUserId = (req as any).user?.id;
       const input = kycRejectSchema.parse(req.body);
@@ -137,7 +138,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   });
 
   // GET /api/v1/dealers/ops/active — Ops: active dealers list
-  router.get('/ops/active', async (req: Request, res: Response) => {
+  router.get('/ops/active', authorize('ops', 'super_admin'), async (req: Request, res: Response) => {
     try {
       const cityId = req.query.cityId as string | undefined;
       const dealers = await prisma.dealer.findMany({

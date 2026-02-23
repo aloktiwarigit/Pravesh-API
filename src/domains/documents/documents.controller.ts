@@ -88,10 +88,9 @@ export function documentsRoutes(service: DocumentsService): Router {
       const serviceInstanceId = z.string().uuid().parse(req.query.service_instance_id);
       const userId = (req as any).user!.id;
 
-      // Dynamically import prisma for stakeholder lookup
-      const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
-      const stakeholder = await prisma.serviceStakeholder.findFirst({
+      // Use shared prisma singleton for stakeholder lookup
+      const { prisma: sharedPrisma } = await import('../../shared/prisma/client');
+      const stakeholder = await sharedPrisma.serviceStakeholder.findFirst({
         where: { serviceInstanceId, userId },
       });
 

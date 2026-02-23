@@ -1292,7 +1292,9 @@ model LawyerBankAccount {
   id                      String    @id @default(uuid())
   lawyerId                String    @map("lawyer_id")
   accountHolderName       String    @map("account_holder_name")
-  accountNumber           String    @map("account_number") // encrypted
+  accountNumber           String    @map("account_number")
+  accountNumberEncrypted  String?   @map("account_number_encrypted")
+  accountNumberMasked     String?   @map("account_number_masked")
   ifscCode                String    @map("ifsc_code")
   bankName                String    @map("bank_name")
   upiId                   String?   @map("upi_id")

@@ -71,62 +71,70 @@ export async function registerPaymentProcessingWorker(
 
 async function handlePaymentSuccess(
   prisma: PrismaClient,
-  stateChangeService: PaymentStateChangeService,
+  _stateChangeService: PaymentStateChangeService,
   data: PaymentProcessingJobData,
   attemptNumber: number,
 ): Promise<void> {
-  await prisma.payment.update({
-    where: { id: data.paymentId },
-    data: { status: 'paid', paidAt: new Date() },
-  });
+  await prisma.$transaction(async (tx) => {
+    await tx.payment.update({
+      where: { id: data.paymentId },
+      data: { status: 'paid', paidAt: new Date() },
+    });
 
-  // Log state change
-  await stateChangeService.logStateChange({
-    paymentId: data.paymentId,
-    oldState: 'pending',
-    newState: 'paid',
-    changedBy: 'system:payment-worker',
-    metadata: { attemptNumber },
-  });
+    // Log state change
+    await tx.paymentStateChange.create({
+      data: {
+        paymentId: data.paymentId,
+        oldState: 'pending',
+        newState: 'paid',
+        changedBy: 'system:payment-worker',
+        metadata: JSON.parse(JSON.stringify({ attemptNumber })),
+      },
+    });
 
-  // Update corresponding service request payment status
-  await prisma.serviceRequest.updateMany({
-    where: { id: data.serviceRequestId },
-    data: { paymentStatus: 'verified' },
+    // Update corresponding service request payment status
+    await tx.serviceRequest.updateMany({
+      where: { id: data.serviceRequestId },
+      data: { paymentStatus: 'verified' },
+    });
   });
 }
 
 async function handleFinalFailure(
   prisma: PrismaClient,
-  stateChangeService: PaymentStateChangeService,
+  _stateChangeService: PaymentStateChangeService,
   data: PaymentProcessingJobData,
   errorMessage: string,
 ): Promise<void> {
-  // AC3: Set payment status to failed
-  await prisma.payment.update({
-    where: { id: data.paymentId },
-    data: { status: 'failed' },
-  });
+  await prisma.$transaction(async (tx) => {
+    // AC3: Set payment status to failed
+    await tx.payment.update({
+      where: { id: data.paymentId },
+      data: { status: 'failed' },
+    });
 
-  // Log state change
-  await stateChangeService.logStateChange({
-    paymentId: data.paymentId,
-    oldState: 'pending',
-    newState: 'failed',
-    changedBy: 'system:payment-worker',
-    metadata: { errorMessage, retries: 3 },
-  });
+    // Log state change
+    await tx.paymentStateChange.create({
+      data: {
+        paymentId: data.paymentId,
+        oldState: 'pending',
+        newState: 'failed',
+        changedBy: 'system:payment-worker',
+        metadata: JSON.parse(JSON.stringify({ errorMessage, retries: 3 })),
+      },
+    });
 
-  // AC5: Flag for ops review via OpsReviewTask
-  await prisma.opsReviewTask.create({
-    data: {
-      type: 'payment_failed',
-      resourceId: data.paymentId,
-      resourceType: 'payment',
-      status: 'pending',
-      metadata: { error: errorMessage, retries: 3 },
-      cityId: data.tenantId, // tenantId maps to cityId in schema
-    },
+    // AC5: Flag for ops review via OpsReviewTask
+    await tx.opsReviewTask.create({
+      data: {
+        type: 'payment_failed',
+        resourceId: data.paymentId,
+        resourceType: 'payment',
+        status: 'pending',
+        metadata: JSON.parse(JSON.stringify({ error: errorMessage, retries: 3 })),
+        cityId: data.tenantId, // tenantId maps to cityId in schema
+      },
+    });
   });
 }
 

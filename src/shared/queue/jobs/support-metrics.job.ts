@@ -1,10 +1,8 @@
 // Story 10.12: pg-boss scheduled job for pre-computing support agent performance metrics
 // Runs daily at midnight via cron: 0 0 * * *
 // Job name: support.compute-metrics per {domain}.{action} convention (DA-4)
-import { PrismaClient } from '@prisma/client';
 import { logger } from '../../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../prisma/client';
 
 export const SUPPORT_METRICS_JOB = 'support.compute-metrics';
 

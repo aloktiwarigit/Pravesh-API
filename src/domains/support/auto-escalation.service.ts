@@ -1,9 +1,7 @@
 // Story 10.8: Auto-Escalation to Support on SLA Breach
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../shared/prisma/client';
 import { supportService } from './support.service';
 import { logger } from '../../shared/utils/logger';
-
-const prisma = new PrismaClient();
 
 // Complex service types that receive 72hr resolution SLA
 const COMPLEX_SERVICE_TYPES = [

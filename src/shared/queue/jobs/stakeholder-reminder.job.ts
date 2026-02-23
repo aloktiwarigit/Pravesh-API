@@ -1,9 +1,7 @@
 // Story 6.11c: pg-boss job for stakeholder document upload reminders
 // Job name follows {domain}.{action} pattern per DA-4
-import { PrismaClient } from '@prisma/client';
 import { logger } from '../../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../prisma/client';
 
 export const STAKEHOLDER_REMINDER_JOB = 'stakeholder.document-reminder';
 

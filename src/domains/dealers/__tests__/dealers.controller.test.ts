@@ -92,6 +92,21 @@ vi.mock('../bank-accounts.service', () => ({
 function buildApp(mockPrisma: any) {
   return createTestApp({
     routes(app) {
+      // Simulate authenticate middleware: populate req.user from x-dev-* headers
+      app.use((req: any, _res: any, next: any) => {
+        const userId = req.headers['x-dev-user-id'];
+        const role = req.headers['x-dev-role'];
+        if (userId && role) {
+          req.user = {
+            id: userId,
+            role,
+            roles: [role],
+            cityId: req.headers['x-dev-city-id'],
+            email: req.headers['x-dev-email'],
+          };
+        }
+        next();
+      });
       app.use('/api/v1/dealers', createDealerController(mockPrisma));
     },
   });

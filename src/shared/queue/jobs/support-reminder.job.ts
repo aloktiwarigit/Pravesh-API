@@ -1,9 +1,7 @@
 // Story 10.4: pg-boss job for support follow-up reminder notifications
 // Job name follows {domain}.{action} pattern per DA-4
-import { PrismaClient } from '@prisma/client';
 import { logger } from '../../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../prisma/client';
 
 export const SUPPORT_REMINDER_JOB = 'support.reminder-notify';
 

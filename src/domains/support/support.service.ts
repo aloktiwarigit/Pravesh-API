@@ -1,4 +1,3 @@
-import { PrismaClient } from '@prisma/client';
 import {
   CustomerSearchInput,
   ServiceFilterInput,
@@ -17,8 +16,7 @@ import {
   CustomerProfileDetail,
   SupportOverviewMetrics,
 } from './support.types';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../shared/prisma/client';
 
 // SLA constants (Story 10.7)
 const FIRST_RESPONSE_HOURS = 2;

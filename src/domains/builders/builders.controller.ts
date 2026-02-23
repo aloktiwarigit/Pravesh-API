@@ -20,6 +20,7 @@ import {
   broadcastCreateSchema,
 } from './builders.validation';
 import { PrismaClient } from '@prisma/client';
+import { authorize } from '../../middleware/authorize';
 
 export function createBuildersController(prisma: PrismaClient): Router {
   const router = Router();
@@ -42,7 +43,7 @@ export function createBuildersController(prisma: PrismaClient): Router {
   });
 
   // POST /api/v1/builders/:builderId/approve — Ops approve/reject
-  router.post('/:builderId/approve', async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/:builderId/approve', authorize('ops', 'super_admin'), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = builderApprovalSchema.parse({
         ...req.body,
@@ -56,7 +57,7 @@ export function createBuildersController(prisma: PrismaClient): Router {
   });
 
   // GET /api/v1/builders/pending — Ops: list pending verifications
-  router.get('/pending', async (_req: Request, res: Response, next: NextFunction) => {
+  router.get('/pending', authorize('ops', 'super_admin'), async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const builders = await service.getPendingBuilders();
       res.json({ success: true, data: builders });
@@ -263,7 +264,7 @@ export function createBuildersController(prisma: PrismaClient): Router {
   );
 
   // PUT /api/v1/builders/pricing-tiers/:tierId — Ops override
-  router.put('/pricing-tiers/:tierId', async (req: Request, res: Response, next: NextFunction) => {
+  router.put('/pricing-tiers/:tierId', authorize('ops', 'super_admin'), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = pricingOverrideSchema.parse(req.body);
       const opsUserId = (req as any).user?.id;
@@ -402,7 +403,7 @@ export function createBuildersController(prisma: PrismaClient): Router {
   });
 
   // POST /api/v1/builders/contracts/:contractId/approve — Ops
-  router.post('/contracts/:contractId/approve', async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/contracts/:contractId/approve', authorize('ops', 'super_admin'), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const opsUserId = (req as any).user?.id;
       const result = await service.approveContract(req.params.contractId, opsUserId);
@@ -497,6 +498,7 @@ export function createBuildersController(prisma: PrismaClient): Router {
   // POST /api/v1/builders/broadcasts/:broadcastId/approve — Ops
   router.post(
     '/broadcasts/:broadcastId/approve',
+    authorize('ops', 'super_admin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const opsUserId = (req as any).user?.id;
@@ -514,6 +516,7 @@ export function createBuildersController(prisma: PrismaClient): Router {
   // POST /api/v1/builders/broadcasts/:broadcastId/reject — Ops
   router.post(
     '/broadcasts/:broadcastId/reject',
+    authorize('ops', 'super_admin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const opsUserId = (req as any).user?.id;
