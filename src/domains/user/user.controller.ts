@@ -7,7 +7,7 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { UserService } from './user.service';
-import { updateProfileSchema, userSearchSchema } from './user.validation';
+import { updateProfileSchema, patchProfileSchema, userSearchSchema } from './user.validation';
 import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
 
@@ -40,7 +40,11 @@ export function createUserController(prisma: PrismaClient): Router {
     try {
       const firebaseUid = (req as any).user?.id;
       const user = await userService.getProfile(firebaseUid);
-      res.json({ success: true, data: user });
+      res.json({ success: true, data: {
+        ...user,
+        name: user.displayName,
+        preferredLanguage: user.languagePref,
+      }});
     } catch (error) {
       handleError(res, error);
     }
@@ -55,7 +59,38 @@ export function createUserController(prisma: PrismaClient): Router {
       const firebaseUid = (req as any).user?.id;
       const input = updateProfileSchema.parse(req.body);
       const user = await userService.updateProfile(firebaseUid, input);
-      res.json({ success: true, data: user });
+      res.json({ success: true, data: {
+        ...user,
+        name: user.displayName,
+        preferredLanguage: user.languagePref,
+      }});
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // ==========================================================
+  // PATCH /me — Partial profile update (Flutter sends PATCH)
+  // ==========================================================
+
+  router.patch('/me', async (req: Request, res: Response) => {
+    try {
+      const firebaseUid = (req as any).user?.id;
+      const input = patchProfileSchema.parse(req.body);
+      // Map Flutter field names to Prisma field names
+      const mapped = {
+        ...(input.name !== undefined && { displayName: input.name }),
+        ...(input.displayName !== undefined && { displayName: input.displayName }),
+        ...(input.preferredLanguage !== undefined && { languagePref: input.preferredLanguage as 'en' | 'hi' }),
+        ...(input.languagePref !== undefined && { languagePref: input.languagePref as 'en' | 'hi' }),
+        ...(input.email !== undefined && { email: input.email }),
+      };
+      const user = await userService.updateProfile(firebaseUid, mapped);
+      res.json({ success: true, data: {
+        ...user,
+        name: user.displayName,
+        preferredLanguage: user.languagePref,
+      }});
     } catch (error) {
       handleError(res, error);
     }

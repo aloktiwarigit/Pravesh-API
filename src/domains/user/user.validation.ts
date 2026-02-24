@@ -14,6 +14,21 @@ export const updateProfileSchema = z.object({
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
 // ============================================================
+// Patch Profile Validation (Flutter alias fields)
+// Accepts both Prisma names and Flutter names
+// ============================================================
+
+export const patchProfileSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  displayName: z.string().min(1).max(100).optional(),
+  email: z.string().email().optional(),
+  preferredLanguage: z.enum(['en', 'hi']).optional(),
+  languagePref: z.enum(['en', 'hi']).optional(),
+});
+
+export type PatchProfileInput = z.infer<typeof patchProfileSchema>;
+
+// ============================================================
 // User Search / List Validation (Admin)
 // ============================================================
 

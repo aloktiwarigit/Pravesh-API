@@ -58,6 +58,9 @@ import { createServiceRequestController } from '../domains/services/service-requ
 // Customer service lifecycle
 import { createCustomerServicesController } from '../domains/services/customer-services.controller';
 
+// Customer dashboard
+import { createCustomerDashboardController } from '../domains/services/customer-dashboard.controller';
+
 // Service instances (Story 5-6)
 import { ServiceInstanceService } from '../domains/services/service-instance.service';
 import { serviceInstanceRoutes } from '../domains/services/service-instance.controller';
@@ -70,9 +73,11 @@ import { documentsRoutes } from '../domains/documents/documents.controller';
 import { AgentTaskService } from '../domains/agents/agent-task.service';
 import { ChecklistService } from '../domains/agents/checklist.service';
 import { CashCollectionService } from '../domains/agents/cash-collection.service';
+import { AgentAssignmentService } from '../domains/agents/agent-assignment.service';
 import { agentTaskRoutes } from '../domains/agents/agent-task.controller';
 import { checklistRoutes } from '../domains/agents/checklist.controller';
 import { cashCollectionRoutes } from '../domains/agents/cash-collection.controller';
+import { agentAssignmentRoutes } from '../domains/agents/agent-assignment.controller';
 
 // Referral domain (Story 4.11)
 import { ReferralService } from '../domains/referrals/referral.service';
@@ -97,6 +102,7 @@ import opsLegalMarketplaceRoutes from './ops-legal-marketplace.routes';
 
 // Ops dashboard (Story 5.1)
 import { createDashboardController } from '../domains/ops/dashboard.controller';
+import { createOpsServiceRequestsController } from '../domains/ops/ops-service-requests.controller';
 
 // Franchise territories (Story 8.X)
 import { createTerritoryController } from '../domains/franchise/territory.controller';
@@ -220,6 +226,11 @@ export function createApiRouter(services: ServiceContainer, prismaInstance?: Pri
     router.use('/ratings', createRatingController(ratingService));
   }
 
+  // Customer dashboard (GET /api/v1/customers/me/dashboard)
+  if (prismaInstance) {
+    router.use('/customers/me/dashboard', createCustomerDashboardController(prismaInstance));
+  }
+
   // Customer service lifecycle (mount BEFORE catalog to avoid /:id catching 'catalog')
   if (prismaInstance) {
     router.use('/services', createCustomerServicesController(prismaInstance));
@@ -252,7 +263,9 @@ export function createApiRouter(services: ServiceContainer, prismaInstance?: Pri
     const agentTaskService = new AgentTaskService(prismaInstance, boss ?? null);
     const checklistService = new ChecklistService(prismaInstance, boss ?? null);
     const cashCollectionService = new CashCollectionService(prismaInstance, boss ?? null);
+    const agentAssignmentService = new AgentAssignmentService(prismaInstance, boss ?? null);
     router.use('/agents/tasks', agentTaskRoutes(agentTaskService));
+    router.use('/agents/assignments', agentAssignmentRoutes(agentAssignmentService));
     router.use('/agents/checklists', checklistRoutes(checklistService));
     router.use('/agents/cash', cashCollectionRoutes(cashCollectionService));
   }
@@ -296,6 +309,7 @@ export function createApiRouter(services: ServiceContainer, prismaInstance?: Pri
   // Story 5.1: Ops Dashboard
   if (prismaInstance) {
     router.use('/ops/dashboard', createDashboardController(prismaInstance));
+    router.use('/ops/service-requests', createOpsServiceRequestsController(prismaInstance));
   }
 
   // Story 8.X: Franchise Territories

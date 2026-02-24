@@ -1,7 +1,7 @@
 // Story 3-2: Agent Assignment Controller
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { AgentAssignmentService } from './agent-assignment.service.js';
+import { AgentAssignmentService } from './agent-assignment.service';
 
 const autoAssignSchema = z.object({
   serviceRequestId: z.string().uuid(),

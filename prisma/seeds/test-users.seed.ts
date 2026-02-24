@@ -94,6 +94,26 @@ const testFranchiseOwners: TestFranchise[] = [
   },
 ];
 
+interface TestUser {
+  firebaseUid: string;
+  phone: string;
+  displayName: string;
+  roles: string[];
+  primaryRole: string;
+}
+
+const testUsers: TestUser[] = [
+  { firebaseUid: 'test_customer_001', phone: '+919876500000', displayName: 'Test Customer', roles: ['customer'], primaryRole: 'customer' },
+  { firebaseUid: 'test_agent_001', phone: '+919876500001', displayName: 'Rajesh Kumar', roles: ['agent'], primaryRole: 'agent' },
+  { firebaseUid: 'test_dealer_001', phone: '+919876500002', displayName: 'Test Dealer', roles: ['dealer'], primaryRole: 'dealer' },
+  { firebaseUid: 'test_ops_001', phone: '+919876500003', displayName: 'Test Ops Manager', roles: ['ops_manager'], primaryRole: 'ops_manager' },
+  { firebaseUid: 'test_support_001', phone: '+919876500004', displayName: 'Test Support', roles: ['support'], primaryRole: 'support' },
+  { firebaseUid: 'test_builder_001', phone: '+919876500005', displayName: 'Sunrise Developers', roles: ['builder'], primaryRole: 'builder' },
+  { firebaseUid: 'test_franchise_001', phone: '+919876500006', displayName: 'Vikram Patel', roles: ['franchise_owner'], primaryRole: 'franchise_owner' },
+  { firebaseUid: 'test_lawyer_001', phone: '+919876500007', displayName: 'Test Lawyer', roles: ['lawyer'], primaryRole: 'lawyer' },
+  { firebaseUid: 'test_superadmin_001', phone: '+919876500008', displayName: 'Test Super Admin', roles: ['super_admin'], primaryRole: 'super_admin' },
+];
+
 export async function seedTestUsers(
   prisma: PrismaClient,
   cityIdMap: Record<string, string>,
@@ -102,6 +122,30 @@ export async function seedTestUsers(
   if (!lucknowId) {
     throw new Error('Lucknow city must be seeded before test users');
   }
+
+  // ── Seed User records (all test roles) ──
+  for (const tu of testUsers) {
+    await prisma.user.upsert({
+      where: { firebaseUid: tu.firebaseUid },
+      update: {
+        displayName: tu.displayName,
+        roles: tu.roles,
+        primaryRole: tu.primaryRole,
+        status: 'ACTIVE',
+      },
+      create: {
+        firebaseUid: tu.firebaseUid,
+        phone: tu.phone,
+        displayName: tu.displayName,
+        roles: tu.roles,
+        primaryRole: tu.primaryRole,
+        cityId: lucknowId,
+        status: 'ACTIVE',
+        languagePref: 'en',
+      },
+    });
+  }
+  console.log(`Seeded ${testUsers.length} User records`);
 
   // ── Seed Agents ──
   for (const agent of testAgents) {
@@ -215,6 +259,139 @@ export async function seedTestUsers(
   }
   console.log(`Seeded ${testFranchiseOwners.length} test franchise owners`);
 
+  // ── Seed Sample Service Requests (for dev E2E testing) ──
+  // Look up the test agent and customer User records
+  const customerUser = await prisma.user.findUnique({ where: { firebaseUid: 'test_customer_001' } });
+  const agentRecord = await prisma.agent.findUnique({ where: { userId: 'test_agent_001' } });
+
+  // Find a service definition (Title Search) to link instances to
+  const titleSearchDef = await prisma.serviceDefinition.findFirst({
+    where: { code: 'PRE-001', cityId: lucknowId },
+  });
+
+  if (customerUser && titleSearchDef) {
+    // Use deterministic IDs so upserts are idempotent
+    const instanceIds = [
+      'a0000000-0000-4000-8000-000000000001',
+      'a0000000-0000-4000-8000-000000000002',
+      'a0000000-0000-4000-8000-000000000003',
+    ];
+    const requestIds = [
+      'b0000000-0000-4000-8000-000000000001',
+      'b0000000-0000-4000-8000-000000000002',
+      'b0000000-0000-4000-8000-000000000003',
+    ];
+
+    // Instance 1: pending (no agent yet)
+    await prisma.serviceInstance.upsert({
+      where: { id: instanceIds[0] },
+      update: {},
+      create: {
+        id: instanceIds[0],
+        serviceDefinitionId: titleSearchDef.id,
+        customerId: customerUser.id,
+        cityId: lucknowId,
+        state: 'requested',
+        propertyAddress: '123 Hazratganj, Lucknow',
+        propertyType: 'residential',
+        propertyCity: 'Lucknow',
+      },
+    });
+    await prisma.serviceRequest.upsert({
+      where: { id: requestIds[0] },
+      update: {},
+      create: {
+        id: requestIds[0],
+        serviceInstanceId: instanceIds[0],
+        customerId: customerUser.id,
+        cityId: lucknowId,
+        status: 'pending',
+        requestNumber: 'REQ-TEST-001',
+        customerName: 'Test Customer',
+        customerPhone: '+919876500000',
+        serviceName: 'Title Search & Verification',
+        serviceCode: 'PRE-001',
+        propertyAddress: '123 Hazratganj, Lucknow',
+      },
+    });
+
+    // Instance 2: assigned to test agent
+    if (agentRecord) {
+      await prisma.serviceInstance.upsert({
+        where: { id: instanceIds[1] },
+        update: {},
+        create: {
+          id: instanceIds[1],
+          serviceDefinitionId: titleSearchDef.id,
+          customerId: customerUser.id,
+          assignedAgentId: agentRecord.id,
+          cityId: lucknowId,
+          state: 'assigned',
+          propertyAddress: '45 Gomti Nagar, Lucknow',
+          propertyType: 'residential',
+          propertyCity: 'Lucknow',
+        },
+      });
+      await prisma.serviceRequest.upsert({
+        where: { id: requestIds[1] },
+        update: {},
+        create: {
+          id: requestIds[1],
+          serviceInstanceId: instanceIds[1],
+          customerId: customerUser.id,
+          assignedAgentId: agentRecord.id,
+          cityId: lucknowId,
+          status: 'assigned',
+          requestNumber: 'REQ-TEST-002',
+          customerName: 'Test Customer',
+          customerPhone: '+919876500000',
+          serviceName: 'Title Search & Verification',
+          serviceCode: 'PRE-001',
+          propertyAddress: '45 Gomti Nagar, Lucknow',
+        },
+      });
+    }
+
+    // Instance 3: completed
+    await prisma.serviceInstance.upsert({
+      where: { id: instanceIds[2] },
+      update: {},
+      create: {
+        id: instanceIds[2],
+        serviceDefinitionId: titleSearchDef.id,
+        customerId: customerUser.id,
+        assignedAgentId: agentRecord?.id,
+        cityId: lucknowId,
+        state: 'completed',
+        propertyAddress: '78 Aliganj, Lucknow',
+        propertyType: 'commercial',
+        propertyCity: 'Lucknow',
+      },
+    });
+    await prisma.serviceRequest.upsert({
+      where: { id: requestIds[2] },
+      update: {},
+      create: {
+        id: requestIds[2],
+        serviceInstanceId: instanceIds[2],
+        customerId: customerUser.id,
+        assignedAgentId: agentRecord?.id,
+        cityId: lucknowId,
+        status: 'completed',
+        requestNumber: 'REQ-TEST-003',
+        customerName: 'Test Customer',
+        customerPhone: '+919876500000',
+        serviceName: 'Title Search & Verification',
+        serviceCode: 'PRE-001',
+        propertyAddress: '78 Aliganj, Lucknow',
+      },
+    });
+
+    console.log('Seeded 3 sample service instances + requests');
+  } else {
+    console.log('Skipped service request seeding (missing customer user or service definition)');
+  }
+
   console.log('Test user summary (Firebase Auth UIDs for development):');
   console.log('  customer:        test_customer_001   (+919876500000)');
   console.log('  agent:           test_agent_001      (+919876500001)');
@@ -225,6 +402,4 @@ export async function seedTestUsers(
   console.log('  franchise_owner: test_franchise_001  (+919876500006)');
   console.log('  lawyer:          test_lawyer_001     (+919876500007)');
   console.log('  super_admin:     test_superadmin_001 (+919876500008)');
-  console.log('NOTE: customer, ops, support, and super_admin roles have no dedicated DB table.');
-  console.log('      They exist only as Firebase Auth custom claims.');
 }
