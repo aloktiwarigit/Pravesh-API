@@ -29,10 +29,16 @@ export function createFranchiseApplicationController(
     authorize('super_admin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const applications = await service.listApplications({
-          status: req.query.status as string,
-          cityId: req.query.cityId as string,
-        });
+        const cursor = req.query.cursor as string | undefined;
+        const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+        const applications = await service.listApplications(
+          {
+            status: req.query.status as string,
+            cityId: req.query.cityId as string,
+          },
+          cursor,
+          limit,
+        );
         res.json({ success: true, data: applications });
       } catch (error) {
         next(error);

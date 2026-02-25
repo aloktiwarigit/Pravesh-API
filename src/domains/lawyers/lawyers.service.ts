@@ -81,10 +81,30 @@ export class LawyerService {
   }
 
   async getLawyerByUserId(userId: string) {
-    return this.prisma.lawyer.findUnique({
+    const lawyer = await this.prisma.lawyer.findUnique({
       where: { userId },
       include: { expertise: true },
     });
+
+    // Dev auto-provision when DEV_AUTH_BYPASS is active and no lawyer exists
+    if (!lawyer && process.env.DEV_AUTH_BYPASS === 'true') {
+      const city = await this.prisma.city.findFirst();
+      return this.prisma.lawyer.create({
+        data: {
+          userId,
+          cityId: city?.id ?? 'dev-city',
+          barCouncilNumber: `DEV-${Date.now().toString(36).toUpperCase()}`,
+          stateBarCouncil: 'Dev State Bar Council',
+          admissionYear: 2020,
+          practicingCertUrl: 'https://placeholder.dev/cert.pdf',
+          lawyerStatus: 'VERIFIED',
+          verifiedAt: new Date(),
+        },
+        include: { expertise: true },
+      });
+    }
+
+    return lawyer;
   }
 
   async getLawyerById(lawyerId: string) {
@@ -94,10 +114,12 @@ export class LawyerService {
     });
   }
 
-  async getPendingVerifications(cityId: string) {
+  async getPendingVerifications(cityId: string, cursor?: string, limit = 50) {
     return this.prisma.lawyer.findMany({
       where: { cityId, lawyerStatus: LawyerStatus.PENDING_VERIFICATION },
       orderBy: { createdAt: 'asc' },
+      take: limit,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
   }
 
@@ -172,10 +194,12 @@ export class LawyerService {
     }
   }
 
-  async getPendingExpertiseRequests() {
+  async getPendingExpertiseRequests(cursor?: string, limit = 50) {
     return this.prisma.lawyerExpertiseRequest.findMany({
       where: { status: 'PENDING' },
       orderBy: { createdAt: 'asc' },
+      take: limit,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
   }
 
@@ -350,13 +374,15 @@ export class LawyerService {
     };
   }
 
-  async getLawyerCases(lawyerId: string) {
+  async getLawyerCases(lawyerId: string, cursor?: string, limit = 50) {
     return this.prisma.legalCase.findMany({
       where: { lawyerId },
       include: {
         opinion: { select: { opinionType: true, submittedAt: true, approvalStatus: true } },
       },
       orderBy: { createdAt: 'desc' },
+      take: limit,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
   }
 
@@ -683,6 +709,8 @@ export class LawyerService {
   async getPayoutHistory(
     lawyerId: string,
     filters?: { status?: string; fromDate?: Date; toDate?: Date },
+    cursor?: string,
+    limit = 50,
   ) {
     return this.prisma.lawyerPayout.findMany({
       where: {
@@ -697,6 +725,8 @@ export class LawyerService {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: limit,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
   }
 
@@ -774,13 +804,15 @@ export class LawyerService {
     };
   }
 
-  async getLawyerRatingsForOps(lawyerId: string) {
+  async getLawyerRatingsForOps(lawyerId: string, cursor?: string, limit = 50) {
     return this.prisma.legalOpinionRating.findMany({
       where: { lawyerId },
       include: {
         legalCase: { select: { caseNumber: true, requiredExpertise: true } },
       },
       orderBy: { ratedAt: 'desc' },
+      take: limit,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
   }
 
@@ -884,6 +916,8 @@ export class LawyerService {
   async getCaseHistory(
     lawyerId: string,
     filters?: { status?: string; fromDate?: Date; toDate?: Date; expertise?: string },
+    cursor?: string,
+    limit = 50,
   ) {
     return this.prisma.legalCase.findMany({
       where: {
@@ -898,6 +932,8 @@ export class LawyerService {
         payouts: { select: { netPayoutInPaise: true, payoutStatus: true } },
       },
       orderBy: { createdAt: 'desc' },
+      take: limit,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
   }
 

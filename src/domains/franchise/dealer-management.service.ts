@@ -104,14 +104,15 @@ export class DealerManagementService {
   }
 
   /**
-   * List dealers for a city
+   * List dealers for a city.
+   * Joins with User table to include name, phone, email for the Flutter model.
    */
   async listDealers(cityId: string, filters?: {
     isActive?: boolean;
     tier?: string;
     kycStatus?: string;
   }) {
-    return this.prisma.dealer.findMany({
+    const dealers = await this.prisma.dealer.findMany({
       where: {
         cityId,
         ...(filters?.isActive !== undefined && {
@@ -121,10 +122,37 @@ export class DealerManagementService {
       },
       orderBy: { createdAt: 'asc' },
     });
+
+    // Batch-fetch user info for all dealers
+    const userIds = dealers.map((d) => d.userId);
+    const users = userIds.length > 0
+      ? await this.prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, displayName: true, phone: true, email: true },
+        })
+      : [];
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    return dealers.map((d) => {
+      const user = userMap.get(d.userId);
+      return {
+        id: d.id,
+        userId: d.userId,
+        cityId: d.cityId,
+        name: user?.displayName ?? d.businessName ?? 'Unknown',
+        phone: user?.phone ?? '',
+        email: user?.email ?? null,
+        kycStatus: this.mapDealerKycStatus(d.dealerStatus),
+        commissionTier: d.currentTier,
+        isActive: d.dealerStatus === 'ACTIVE',
+        deactivationReason: d.deactivationReason,
+      };
+    });
   }
 
   /**
-   * Get dealer details
+   * Get dealer details.
+   * Returns transformed data with user info for Flutter compatibility.
    */
   async getDealer(dealerId: string) {
     const dealer = await this.prisma.dealer.findUnique({
@@ -135,7 +163,39 @@ export class DealerManagementService {
       throw new BusinessError(ErrorCodes.BUSINESS_DEALER_NOT_FOUND, 'Dealer not found', 404);
     }
 
-    return dealer;
+    const user = await this.prisma.user.findUnique({
+      where: { id: dealer.userId },
+      select: { displayName: true, phone: true, email: true },
+    });
+
+    return {
+      ...dealer,
+      name: user?.displayName ?? dealer.businessName ?? 'Unknown',
+      phone: user?.phone ?? '',
+      email: user?.email ?? null,
+      kycStatus: this.mapDealerKycStatus(dealer.dealerStatus),
+      commissionTier: dealer.currentTier,
+      isActive: dealer.dealerStatus === 'ACTIVE',
+    };
+  }
+
+  /**
+   * Map Prisma DealerStatus enum to Flutter-compatible kycStatus string.
+   */
+  private mapDealerKycStatus(status: string): string {
+    switch (status) {
+      case 'PENDING_KYC':
+      case 'PENDING_APPROVAL':
+        return 'pending';
+      case 'ACTIVE':
+        return 'approved';
+      case 'REJECTED':
+        return 'rejected';
+      case 'SUSPENDED':
+        return 'suspended';
+      default:
+        return status.toLowerCase();
+    }
   }
 
   /**

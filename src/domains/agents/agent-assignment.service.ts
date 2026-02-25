@@ -10,8 +10,8 @@ import { BusinessError } from '../../shared/errors/business-error.js';
 export interface AssignmentRequest {
   serviceRequestId: string;
   cityId: string;
-  propertyLat: number;
-  propertyLng: number;
+  propertyLat?: number;
+  propertyLng?: number;
   assignedBy: string;
   manualAgentId?: string; // Ops override
 }
@@ -53,6 +53,13 @@ export class AgentAssignmentService {
     }
 
     // Score agents
+    if (request.propertyLat == null || request.propertyLng == null) {
+      throw new BusinessError(
+        'VALIDATION_INVALID_INPUT',
+        'propertyLat and propertyLng are required for auto-assignment',
+        400,
+      );
+    }
     const scoringResult = await scoreAgents(
       this.prisma,
       request.cityId,
@@ -252,10 +259,12 @@ export class AgentAssignmentService {
   /**
    * Get assignment history for a service request.
    */
-  async getAssignmentHistory(serviceRequestId: string) {
+  async getAssignmentHistory(serviceRequestId: string, cursor?: string, limit = 20) {
     return this.prisma.agentAssignmentLog.findMany({
       where: { serviceRequestId },
       orderBy: { createdAt: 'desc' },
+      take: limit,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
   }
 }

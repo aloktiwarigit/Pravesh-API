@@ -21,6 +21,11 @@ const envSchema = z.object({
   WHATSAPP_VERIFY_TOKEN: z.string().default(''),
   WHATSAPP_APP_SECRET: z.string().default(''),
 
+  // WhatsApp MSG91 client (FR108 — notification delivery service)
+  WHATSAPP_API_KEY: z.string().default(''),
+  WHATSAPP_SENDER_ID: z.string().default(''),
+  WHATSAPP_PROVIDER: z.enum(['msg91', 'meta']).default('msg91'),
+
   // SMS Gateway (Story 7-5)
   SMS_API_KEY: z.string().default(''),
   SMS_SENDER_ID: z.string().default('PROPLA'),

@@ -5,9 +5,12 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { authorize } from '../../middleware/authorize.js';
+import { NotificationDeliveryService } from './notification-delivery.service.js';
 
 export function createNotificationController(prisma: PrismaClient): Router {
   const router = Router();
+  const deliveryService = new NotificationDeliveryService(prisma);
 
   /**
    * GET /history
@@ -127,6 +130,57 @@ export function createNotificationController(prisma: PrismaClient): Router {
       next(error);
     }
   });
+
+  /**
+   * POST /send
+   * Trigger notification delivery for a given user (ops/admin only).
+   * FR109: Orchestrates FCM → WhatsApp → SMS fallback chain.
+   *
+   * Body:
+   *   userId       — target user's internal ID (required)
+   *   templateName — notification template code (required)
+   *   channel      — preferred starting channel: 'push' | 'whatsapp' | 'sms' (optional, default 'push')
+   *   data         — key/value context data; include _phone for WhatsApp/SMS (optional)
+   *
+   * Example:
+   *   POST /api/v1/notifications/send
+   *   { "userId": "abc123", "templateName": "service_status_change_wa_en_v1",
+   *     "channel": "whatsapp", "data": { "_phone": "+919876543210", "service_name": "Title Search" } }
+   */
+  router.post(
+    '/send',
+    authorize('admin', 'ops'),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { userId, templateName, channel, data } = req.body as {
+          userId?: string;
+          templateName?: string;
+          channel?: 'push' | 'whatsapp' | 'sms';
+          data?: Record<string, string>;
+        };
+
+        const params = {
+          userId: userId ?? '',
+          templateName: templateName ?? '',
+          channel,
+          data: data ?? {},
+        };
+
+        deliveryService.validateParams(params);
+
+        const result = await deliveryService.deliverNotification(params);
+
+        const httpStatus = result.finalStatus === 'delivered' ? 200 : 422;
+
+        res.status(httpStatus).json({
+          success: result.finalStatus === 'delivered',
+          data: result,
+        });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 
   return router;
 }

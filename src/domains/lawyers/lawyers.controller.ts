@@ -31,7 +31,7 @@ export class LawyerController {
   register = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = lawyerRegisterSchema.parse(req.body);
-      const userId = (req as any).user.uid;
+      const userId = (req as any).user.id;
       const cityId = (req as any).user.cityId;
 
       const lawyer = await this.lawyerService.register(userId, cityId, {
@@ -54,7 +54,7 @@ export class LawyerController {
   verify = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = lawyerVerifySchema.parse(req.body);
-      const verifiedBy = (req as any).user.uid;
+      const verifiedBy = (req as any).user.id;
       const lawyer = await this.lawyerService.verify(input, verifiedBy);
       res.json({
         success: true,
@@ -67,7 +67,7 @@ export class LawyerController {
 
   getMyProfile = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as any).user.uid;
+      const userId = (req as any).user.id;
       const lawyer = await this.lawyerService.getLawyerByUserId(userId);
       res.json({ success: true, data: lawyer });
     } catch (error) {
@@ -78,7 +78,9 @@ export class LawyerController {
   getPendingVerifications = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const cityId = (req as any).user.cityId;
-      const lawyers = await this.lawyerService.getPendingVerifications(cityId);
+      const cursor = req.query.cursor as string | undefined;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const lawyers = await this.lawyerService.getPendingVerifications(cityId, cursor, limit);
       res.json({ success: true, data: lawyers });
     } catch (error) {
       next(error);
@@ -95,7 +97,7 @@ export class LawyerController {
       const result = await this.lawyerService.assignExpertise(
         lawyerId,
         tags,
-        (req as any).user.uid,
+        (req as any).user.id,
       );
       res.json({ success: true, data: result });
     } catch (error) {
@@ -106,7 +108,7 @@ export class LawyerController {
   requestExpertise = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = requestExpertiseSchema.parse(req.body);
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;
@@ -128,7 +130,7 @@ export class LawyerController {
       const result = await this.lawyerService.reviewExpertiseRequest(
         input.requestId,
         input.action,
-        (req as any).user.uid,
+        (req as any).user.id,
         input.rejectionReason,
       );
       res.json({ success: true, data: result });
@@ -160,7 +162,7 @@ export class LawyerController {
       const input = createLegalCaseSchema.parse(req.body);
       const legalCase = await this.lawyerService.createLegalCase(
         input,
-        (req as any).user.uid,
+        (req as any).user.id,
         (req as any).user.cityId,
       );
       res.status(201).json({ success: true, data: legalCase });
@@ -176,7 +178,7 @@ export class LawyerController {
   acceptCase = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { caseId } = req.params;
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;
@@ -192,7 +194,7 @@ export class LawyerController {
     try {
       const { caseId } = req.params;
       const input = declineCaseSchema.parse({ caseId, ...req.body });
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;
@@ -212,7 +214,7 @@ export class LawyerController {
   getCaseDetails = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { caseId } = req.params;
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;
@@ -226,12 +228,14 @@ export class LawyerController {
 
   getMyCases = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;
       }
-      const cases = await this.lawyerService.getLawyerCases(lawyer.id);
+      const cursor = req.query.cursor as string | undefined;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const cases = await this.lawyerService.getLawyerCases(lawyer.id, cursor, limit);
       res.json({ success: true, data: cases });
     } catch (error) {
       next(error);
@@ -245,7 +249,7 @@ export class LawyerController {
   getCaseDocuments = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { caseId } = req.params;
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;
@@ -261,7 +265,7 @@ export class LawyerController {
     try {
       const { caseId, documentId } = req.params;
       const { accessType } = logDocumentAccessSchema.parse(req.body);
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;
@@ -277,7 +281,7 @@ export class LawyerController {
     try {
       const { caseId } = req.params;
       const { requestText } = requestDocumentSchema.parse(req.body);
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;
@@ -300,7 +304,7 @@ export class LawyerController {
   submitOpinion = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = submitOpinionSchema.parse(req.body);
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;
@@ -325,7 +329,7 @@ export class LawyerController {
       const result = await this.lawyerService.reviewOpinion(
         input.opinionId,
         input.action,
-        (req as any).user.uid,
+        (req as any).user.id,
         input.reviewNotes,
       );
       res.json({ success: true, data: result });
@@ -353,7 +357,7 @@ export class LawyerController {
       const { serviceRequestId } = req.params;
       const result = await this.lawyerService.getOpinionForCustomer(
         serviceRequestId,
-        (req as any).user.uid,
+        (req as any).user.id,
       );
       res.json({ success: true, data: result });
     } catch (error) {
@@ -366,7 +370,7 @@ export class LawyerController {
       const { serviceRequestId } = req.params;
       const result = await this.lawyerService.requestSecondOpinion(
         serviceRequestId,
-        (req as any).user.uid,
+        (req as any).user.id,
       );
       res.status(201).json({ success: true, data: result });
     } catch (error) {
@@ -391,7 +395,7 @@ export class LawyerController {
   saveBankAccount = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = lawyerBankAccountSchema.parse(req.body);
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;
@@ -405,7 +409,7 @@ export class LawyerController {
 
   getBankAccounts = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;
@@ -419,12 +423,14 @@ export class LawyerController {
 
   getPayoutHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;
       }
-      const payouts = await this.lawyerService.getPayoutHistory(lawyer.id, req.query as any);
+      const cursor = req.query.cursor as string | undefined;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const payouts = await this.lawyerService.getPayoutHistory(lawyer.id, req.query as any, cursor, limit);
       res.json({ success: true, data: payouts });
     } catch (error) {
       next(error);
@@ -440,7 +446,7 @@ export class LawyerController {
       const input = rateOpinionSchema.parse(req.body);
       const result = await this.lawyerService.rateOpinion(
         input.caseId,
-        (req as any).user.uid,
+        (req as any).user.id,
         input.rating,
         input.feedback,
       );
@@ -452,7 +458,7 @@ export class LawyerController {
 
   getMyRatingSummary = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;
@@ -467,7 +473,9 @@ export class LawyerController {
   getLawyerRatingsOps = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { lawyerId } = req.params;
-      const ratings = await this.lawyerService.getLawyerRatingsForOps(lawyerId);
+      const cursor = req.query.cursor as string | undefined;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const ratings = await this.lawyerService.getLawyerRatingsForOps(lawyerId, cursor, limit);
       const summary = await this.lawyerService.getLawyerRatingSummary(lawyerId);
       res.json({ success: true, data: { summary, ratings } });
     } catch (error) {
@@ -481,7 +489,7 @@ export class LawyerController {
 
   getEarningsDashboard = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;
@@ -502,12 +510,14 @@ export class LawyerController {
 
   getCaseHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;
       }
-      const cases = await this.lawyerService.getCaseHistory(lawyer.id, req.query as any);
+      const cursor = req.query.cursor as string | undefined;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const cases = await this.lawyerService.getCaseHistory(lawyer.id, req.query as any, cursor, limit);
       res.json({ success: true, data: cases });
     } catch (error) {
       next(error);
@@ -554,7 +564,7 @@ export class LawyerController {
       const result = await this.lawyerService.reassignCase(
         input.caseId,
         input.newLawyerId,
-        (req as any).user.uid,
+        (req as any).user.id,
       );
       res.json({ success: true, data: result });
     } catch (error) {
@@ -591,7 +601,7 @@ export class LawyerController {
   toggleDnd = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { enabled } = toggleDndSchema.parse(req.body);
-      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.uid);
+      const lawyer = await this.lawyerService.getLawyerByUserId((req as any).user.id);
       if (!lawyer) {
         res.status(404).json({ success: false, error: { code: 'LAWYER_NOT_FOUND', message: 'Lawyer profile not found' } });
         return;

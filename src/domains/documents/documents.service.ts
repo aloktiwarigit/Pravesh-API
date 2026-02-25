@@ -273,17 +273,19 @@ export class DocumentsService {
   // ================================================================
   // Story 6.6: Get ops review queue
   // ================================================================
-  async getReviewQueue(cityId: string) {
+  async getReviewQueue(cityId: string, cursor?: string, limit = 50) {
     return this.prisma.opsReviewTask.findMany({
       where: { type: 'document_review', status: 'pending', cityId },
       orderBy: { createdAt: 'asc' },
+      take: limit,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
   }
 
   // ================================================================
   // Story 6.8: Get all documents for a user (document vault)
   // ================================================================
-  async getDocumentsForUser(userId: string) {
+  async getDocumentsForUser(userId: string, cursor?: string, limit = 50) {
     return this.prisma.document.findMany({
       where: {
         OR: [
@@ -291,6 +293,8 @@ export class DocumentsService {
         ],
       },
       orderBy: { uploadedAt: 'desc' },
+      take: limit,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
   }
 

@@ -221,20 +221,27 @@ export class AnalyticsService {
    * Get geographic data for heatmap visualization
    */
   async getGeographicHeatmapData() {
-    const cities = await this.prisma.city.findMany({
-      where: { activeStatus: true },
-    });
-
     const currentMonth = getCurrentMonth();
-    const heatmapData = [];
 
-    for (const city of cities) {
-      const config = city.configData as any;
-      const monthData = await this.prisma.franchiseRevenue.aggregate({
-        where: { cityId: city.id, month: currentMonth },
+    // Batch queries: fetch all data in 2 queries instead of 1+N (N+1 fix)
+    const [cities, revenueByCity] = await Promise.all([
+      this.prisma.city.findMany({
+        where: { activeStatus: true },
+      }),
+      this.prisma.franchiseRevenue.groupBy({
+        by: ['cityId'],
+        where: { month: currentMonth },
         _sum: { serviceFeePaise: true },
         _count: true,
-      });
+      }),
+    ]);
+
+    // Index batch results by cityId for O(1) lookup
+    const revenueMap = new Map(revenueByCity.map((r) => [r.cityId, r]));
+
+    return cities.map((city) => {
+      const config = city.configData as any;
+      const monthData = revenueMap.get(city.id);
 
       // Extract GPS coordinates from office addresses
       let lat: number | null = null;
@@ -247,18 +254,16 @@ export class AnalyticsService {
         }
       }
 
-      heatmapData.push({
+      return {
         cityId: city.id,
         cityName: city.cityName,
         state: city.state,
         lat,
         lng,
-        serviceVolume: monthData._count,
-        revenuePaise: monthData._sum.serviceFeePaise || 0,
-      });
-    }
-
-    return heatmapData;
+        serviceVolume: monthData?._count || 0,
+        revenuePaise: monthData?._sum.serviceFeePaise || 0,
+      };
+    });
   }
 
   /**

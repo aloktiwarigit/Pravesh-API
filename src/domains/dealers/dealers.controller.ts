@@ -93,6 +93,8 @@ export function createDealerController(prisma: PrismaClient): Router {
   router.get('/ops/kyc-queue', authorize('ops', 'super_admin'), async (req: Request, res: Response) => {
     try {
       const cityId = req.query.cityId as string | undefined;
+      const cursor = req.query.cursor as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
       const queue = await prisma.dealerKyc.findMany({
         where: {
           status: 'PENDING',
@@ -100,6 +102,8 @@ export function createDealerController(prisma: PrismaClient): Router {
         },
         include: { dealer: { select: { id: true, dealerCode: true, cityId: true } } },
         orderBy: { submittedAt: 'asc' },
+        take: limit,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       });
       res.json({ success: true, data: queue });
     } catch (error) {
@@ -141,6 +145,8 @@ export function createDealerController(prisma: PrismaClient): Router {
   router.get('/ops/active', authorize('ops', 'super_admin'), async (req: Request, res: Response) => {
     try {
       const cityId = req.query.cityId as string | undefined;
+      const cursor = req.query.cursor as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 100;
       const dealers = await prisma.dealer.findMany({
         where: {
           dealerStatus: 'ACTIVE',
@@ -155,6 +161,8 @@ export function createDealerController(prisma: PrismaClient): Router {
           createdAt: true,
         },
         orderBy: { createdAt: 'desc' },
+        take: limit,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       });
       res.json({ success: true, data: dealers });
     } catch (error) {
@@ -509,7 +517,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   router.get('/profile', async (req: Request, res: Response) => {
     try {
       const userId = (req as any).user?.id;
-      const dealer = await prisma.dealer.findUnique({
+      let dealer = await prisma.dealer.findUnique({
         where: { userId },
         include: {
           kyc: {
@@ -521,6 +529,31 @@ export function createDealerController(prisma: PrismaClient): Router {
           },
         },
       });
+
+      // Auto-provision dev dealer when DEV_AUTH_BYPASS is active
+      if (!dealer && process.env.DEV_AUTH_BYPASS === 'true') {
+        const city = await prisma.city.findFirst();
+        dealer = await prisma.dealer.create({
+          data: {
+            userId,
+            dealerCode: `DEV-${Date.now().toString(36).toUpperCase()}`,
+            dealerStatus: 'ACTIVE',
+            currentTier: 'BRONZE',
+            businessName: 'Dev Dealer',
+            cityId: city?.id ?? 'dev-city',
+          },
+          include: {
+            kyc: {
+              select: {
+                status: true,
+                aadhaarMasked: true,
+                reviewedAt: true,
+              },
+            },
+          },
+        });
+      }
+
       if (!dealer) {
         return res.status(404).json({
           success: false,
@@ -543,6 +576,325 @@ export function createDealerController(prisma: PrismaClient): Router {
           createdAt: dealer.createdAt.toISOString(),
         },
       });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // GET /api/v1/dealers/kyc-status — Alias for Flutter compatibility
+  router.get('/kyc-status', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const dealer = await prisma.dealer.findUnique({
+        where: { userId },
+        include: { kyc: true },
+      });
+      if (!dealer) {
+        return res.json({ success: true, data: { status: 'NOT_STARTED', kycStatus: 'NOT_STARTED' } });
+      }
+      res.json({
+        success: true,
+        data: {
+          dealerId: dealer.id,
+          dealerStatus: dealer.dealerStatus,
+          status: dealer.kyc?.status ?? 'NOT_STARTED',
+          kycStatus: dealer.kyc?.status ?? 'NOT_STARTED',
+          rejectionReason: dealer.kyc?.rejectionReason ?? null,
+          reviewedAt: dealer.kyc?.reviewedAt?.toISOString() ?? null,
+        },
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // ==========================================================
+  // Flutter /me/ path aliases
+  // The Flutter app uses /dealers/me/<resource> while the backend
+  // originally used /dealers/<resource>. These aliases bridge that gap.
+  // ==========================================================
+
+  // GET /dealers/me/referral → same as /dealers/referral-data
+  router.get('/me/referral', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const dealer = await prisma.dealer.findUnique({ where: { userId } });
+      if (!dealer || dealer.dealerStatus !== 'ACTIVE') {
+        return res.json({
+          success: true,
+          data: {
+            referralLink: '',
+            qrCodeUrl: '',
+            clickCount: 0,
+            dealerCode: dealer?.dealerCode ?? '--',
+          },
+        });
+      }
+      const data = await dealerService.getDealerReferralData(dealer.id);
+      res.json({ success: true, data });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // GET /dealers/me/pipeline → same as /dealers/pipeline
+  router.get('/me/pipeline', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const dealer = await prisma.dealer.findUnique({ where: { userId } });
+      if (!dealer) {
+        return res.json({ success: true, data: [] });
+      }
+      const filters = pipelineFilterSchema.parse(req.query);
+      const pipeline = await dealerService.getDealerPipeline(
+        dealer.id, filters, req.query.cursor as string | undefined,
+      );
+      res.json({ success: true, data: pipeline });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // GET /dealers/me/earnings/summary
+  router.get('/me/earnings/summary', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const dealer = await prisma.dealer.findUnique({ where: { userId } });
+      if (!dealer) {
+        return res.json({
+          success: true,
+          data: { totalEarnedPaise: 0, pendingPaise: 0, paidPaise: 0 },
+        });
+      }
+      // Aggregate from commissions
+      const [total, pending, paid] = await Promise.all([
+        prisma.dealerCommission.aggregate({
+          where: { dealerId: dealer.id },
+          _sum: { commissionAmountPaise: true },
+        }),
+        prisma.dealerCommission.aggregate({
+          where: { dealerId: dealer.id, status: 'PENDING' },
+          _sum: { commissionAmountPaise: true },
+        }),
+        prisma.dealerCommission.aggregate({
+          where: { dealerId: dealer.id, status: 'PAID' },
+          _sum: { commissionAmountPaise: true },
+        }),
+      ]);
+      res.json({
+        success: true,
+        data: {
+          totalEarnedPaise: Number(total._sum?.commissionAmountPaise ?? 0),
+          pendingPaise: Number(pending._sum?.commissionAmountPaise ?? 0),
+          paidPaise: Number(paid._sum?.commissionAmountPaise ?? 0),
+        },
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // GET /dealers/me/earnings/forecast
+  router.get('/me/earnings/forecast', async (req: Request, res: Response) => {
+    try {
+      res.json({
+        success: true,
+        data: { forecastPaise: 0, inProgressCount: 0, avgCommissionPaise: 0 },
+      });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // GET /dealers/me/commissions
+  router.get('/me/commissions', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const dealer = await prisma.dealer.findUnique({ where: { userId } });
+      if (!dealer) {
+        return res.json({ success: true, data: [] });
+      }
+      const statusFilter = req.query.status as string | undefined;
+      const where: any = { dealerId: dealer.id };
+      if (statusFilter) where.status = statusFilter;
+      const commissions = await prisma.dealerCommission.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: parseInt(req.query.limit as string, 10) || 20,
+      });
+      res.json({ success: true, data: commissions });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // GET /dealers/me/tier-progress → same as /dealers/tier-progress
+  router.get('/me/tier-progress', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const dealer = await prisma.dealer.findUnique({ where: { userId } });
+      if (!dealer) {
+        return res.json({
+          success: true,
+          data: {
+            currentTier: 'BRONZE',
+            nextTier: 'SILVER',
+            referralsThisMonth: 0,
+            referralsNeeded: 5,
+            progressPercent: 0,
+          },
+        });
+      }
+      const progress = await dealerService.getTierProgress(dealer.id);
+      res.json({ success: true, data: progress });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // GET /dealers/me/badges → same as /dealers/badges
+  router.get('/me/badges', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const dealer = await prisma.dealer.findUnique({ where: { userId } });
+      if (!dealer) {
+        return res.json({ success: true, data: [] });
+      }
+      const badges = await badgeService.getDealerBadges(dealer.id);
+      res.json({ success: true, data: badges });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // GET /dealers/me/badge-progress → same as /dealers/badges/progress
+  router.get('/me/badge-progress', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const dealer = await prisma.dealer.findUnique({ where: { userId } });
+      if (!dealer) {
+        return res.json({ success: true, data: null });
+      }
+      const progress = await badgeService.getNextBadgeProgress(dealer.id);
+      res.json({ success: true, data: progress });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // POST /dealers/me/bank-accounts → same as POST /dealers/bank-accounts
+  router.post('/me/bank-accounts', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const dealer = await prisma.dealer.findUnique({ where: { userId } });
+      if (!dealer) {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'DEALER_NOT_FOUND', message: 'Dealer not found' },
+        });
+      }
+      const input = addBankAccountSchema.parse(req.body);
+      const account = await bankAccountService.addBankAccount(dealer.id, input);
+      res.status(201).json({ success: true, data: account });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // PUT /dealers/me/bank-accounts/:accountId/primary → set primary bank account
+  router.put('/me/bank-accounts/:accountId/primary', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const dealer = await prisma.dealer.findUnique({ where: { userId } });
+      if (!dealer) {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'DEALER_NOT_FOUND', message: 'Dealer not found' },
+        });
+      }
+      const result = await bankAccountService.setPrimaryAccount(
+        dealer.id,
+        req.params.accountId,
+      );
+      res.json({ success: true, data: result });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // POST /dealers/me/verify → stub for dealer verification
+  router.post('/me/verify', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const dealer = await prisma.dealer.findUnique({ where: { userId } });
+      if (!dealer) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'DEALER_NOT_FOUND', message: 'Dealer not found' },
+        });
+      }
+      res.json({ success: true, data: { verified: true, dealerId: dealer.id } });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // GET /dealers/me/bank-accounts → same as /dealers/bank-accounts
+  router.get('/me/bank-accounts', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const dealer = await prisma.dealer.findUnique({ where: { userId } });
+      if (!dealer) {
+        return res.json({ success: true, data: [] });
+      }
+      const accounts = await bankAccountService.getDealerAccounts(dealer.id);
+      res.json({ success: true, data: accounts });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // GET /dealers/me/payouts
+  router.get('/me/payouts', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const dealer = await prisma.dealer.findUnique({ where: { userId } });
+      if (!dealer) {
+        return res.json({ success: true, data: [] });
+      }
+      const payouts = await prisma.dealerPayout.findMany({
+        where: { dealerId: dealer.id },
+        orderBy: { createdAt: 'desc' },
+        take: parseInt(req.query.limit as string, 10) || 20,
+      });
+      res.json({ success: true, data: payouts });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // POST /dealers/register → stub for dealer registration
+  router.post('/register', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      // Check if already registered
+      const existing = await prisma.dealer.findUnique({ where: { userId } });
+      if (existing) {
+        return res.json({ success: true, data: { dealerId: existing.id } });
+      }
+      // Auto-create minimal dealer record
+      const city = await prisma.city.findFirst();
+      const dealer = await prisma.dealer.create({
+        data: {
+          userId,
+          dealerCode: `DLR-${Date.now().toString(36).toUpperCase()}`,
+          dealerStatus: 'PENDING_KYC',
+          currentTier: 'BRONZE',
+          businessName: req.body.businessName || 'New Dealer',
+          cityId: req.body.cityId || city?.id || 'unknown',
+        },
+      });
+      res.status(201).json({ success: true, data: { dealerId: dealer.id } });
     } catch (error) {
       handleError(res, error);
     }

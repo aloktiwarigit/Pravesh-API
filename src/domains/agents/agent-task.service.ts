@@ -20,6 +20,8 @@ export type TaskStatus =
   | 'completed';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
+  pending: ['assigned', 'pending_contact'],
+  assigned: ['pending_contact', 'in_progress'],
   pending_contact: ['contacted'],
   contacted: ['scope_confirmed'],
   scope_confirmed: ['awaiting_payment'],
@@ -213,12 +215,14 @@ export class AgentTaskService {
     }
 
     // Notify Ops + Customer of status change
-    await this.boss.send('notification.send', {
-      type: 'task_status_update',
-      taskId: payload.taskId,
-      serviceRequestId: task.serviceInstanceId,
-      newStatus: payload.newStatus,
-    } as Record<string, unknown>);
+    if (this.boss) {
+      await this.boss.send('notification.send', {
+        type: 'task_status_update',
+        taskId: payload.taskId,
+        serviceRequestId: task.serviceInstanceId,
+        newStatus: payload.newStatus,
+      } as Record<string, unknown>);
+    }
 
     return { alreadyProcessed: false, task: updatedTask, statusLog };
   }
@@ -330,6 +334,7 @@ export class AgentTaskService {
         updatedAt: true,
       },
       orderBy: { updatedAt: 'asc' },
+      take: 100,
     });
   }
 }

@@ -221,7 +221,7 @@ export class DashboardService {
   async getLawyerMetrics(cityId?: string, dateRange?: DateRange): Promise<LawyerMetrics> {
     const lawyerWhere = {
       ...(cityId && { cityId }),
-      verificationStatus: 'VERIFIED',
+      lawyerStatus: 'VERIFIED' as const,
     };
 
     const caseWhere = {

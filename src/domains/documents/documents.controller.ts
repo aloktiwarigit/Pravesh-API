@@ -61,7 +61,9 @@ export function documentsRoutes(service: DocumentsService): Router {
   // ================================================================
   router.get('/my-vault', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const documents = await service.getDocumentsForUser((req as any).user!.id);
+      const cursor = req.query.cursor as string | undefined;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const documents = await service.getDocumentsForUser((req as any).user!.id, cursor, limit);
       res.json({ success: true, data: documents });
     } catch (error) {
       next(error);
@@ -73,7 +75,9 @@ export function documentsRoutes(service: DocumentsService): Router {
   // ================================================================
   router.get('/review-queue', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const queue = await service.getReviewQueue((req as any).user!.cityId);
+      const cursor = req.query.cursor as string | undefined;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const queue = await service.getReviewQueue((req as any).user!.cityId, cursor, limit);
       res.json({ success: true, data: queue });
     } catch (error) {
       next(error);

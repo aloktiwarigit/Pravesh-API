@@ -40,7 +40,8 @@ const USER_STATUS = [
 export const registerSchema = z.object({
   phone: z
     .string()
-    .regex(/^[0-9]{10}$/, 'Phone must be exactly 10 digits')
+    .regex(/^\+?91?[0-9]{10}$/, 'Phone must be 10 digits, optionally prefixed with +91 or 91')
+    .transform((val) => val.replace(/^\+?91/, '').slice(-10))
     .optional(),
   displayName: z.string().min(1).max(100).optional(),
   firebaseUid: z.string().min(1, 'firebaseUid is required'),

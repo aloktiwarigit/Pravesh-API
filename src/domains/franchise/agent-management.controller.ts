@@ -52,7 +52,7 @@ export function createAgentManagementController(service: AgentManagementService)
   // GET /api/v1/franchise-agents/:cityId — List agents for city
   router.get(
     '/:cityId',
-    authorize('franchise_owner', 'super_admin', 'ops'),
+    authorize('franchise_owner', 'super_admin', 'ops', 'ops_manager'),
     cityScope(),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
@@ -70,7 +70,7 @@ export function createAgentManagementController(service: AgentManagementService)
   // GET /api/v1/franchise-agents/detail/:id — Get agent details
   router.get(
     '/detail/:id',
-    authorize('franchise_owner', 'super_admin', 'ops'),
+    authorize('franchise_owner', 'super_admin', 'ops', 'ops_manager'),
     cityScopeByEntity(agentCityLookup(service)),
     async (req: Request, res: Response, next: NextFunction) => {
       try {

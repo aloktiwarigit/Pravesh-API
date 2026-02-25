@@ -223,7 +223,7 @@ export class FranchiseApplicationService {
   /**
    * List applications with optional status filter
    */
-  async listApplications(filters?: { status?: string; cityId?: string }) {
+  async listApplications(filters?: { status?: string; cityId?: string }, cursor?: string, limit = 50) {
     return this.prisma.franchiseApplication.findMany({
       where: {
         ...(filters?.status && { status: filters.status }),
@@ -231,6 +231,8 @@ export class FranchiseApplicationService {
       },
       include: { city: { select: { cityName: true, state: true } } },
       orderBy: { createdAt: 'desc' },
+      take: limit,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
   }
 

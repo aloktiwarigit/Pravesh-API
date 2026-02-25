@@ -12,8 +12,8 @@ const autoAssignSchema = z.object({
 const manualAssignSchema = z.object({
   serviceRequestId: z.string().uuid(),
   agentId: z.string().uuid(),
-  propertyLat: z.number().min(-90).max(90),
-  propertyLng: z.number().min(-180).max(180),
+  propertyLat: z.number().min(-90).max(90).optional(),
+  propertyLng: z.number().min(-180).max(180).optional(),
 });
 
 const reassignSchema = z.object({

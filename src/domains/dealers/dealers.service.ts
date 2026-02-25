@@ -367,14 +367,19 @@ export class DealerService {
     let demoted = 0;
     let unchanged = 0;
 
+    // Batch query referral counts for all dealers (avoid N+1)
+    const referralCounts = await this.prisma.dealerReferral.groupBy({
+      by: ['dealerId'],
+      where: {
+        attributionStatus: AttributionStatus.CONFIRMED,
+        confirmedAt: { gte: lastMonth, lte: lastMonthEnd },
+      },
+      _count: true,
+    });
+    const referralCountMap = new Map(referralCounts.map(r => [r.dealerId, r._count]));
+
     for (const dealer of activeDealers) {
-      const referralCount = await this.prisma.dealerReferral.count({
-        where: {
-          dealerId: dealer.id,
-          attributionStatus: AttributionStatus.CONFIRMED,
-          confirmedAt: { gte: lastMonth, lte: lastMonthEnd },
-        },
-      });
+      const referralCount = referralCountMap.get(dealer.id) || 0;
 
       let newTier: DealerTier;
       if (referralCount >= TIER_THRESHOLDS.GOLD) {

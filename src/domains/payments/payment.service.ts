@@ -17,11 +17,12 @@ export class PaymentService {
 
   /**
    * Creates a Razorpay order for a service request payment.
+   * P0-2: amountPaise is optional — derived from service request when omitted.
    * Story 4.1 AC1
    */
   async createOrder(params: {
     serviceRequestId: string;
-    amountPaise: number;
+    amountPaise?: number;
     currency: string;
     customerId: string;
     cityId: string;
@@ -40,9 +41,23 @@ export class PaymentService {
       throw new AppError('FORBIDDEN', 'Not your service request', 403);
     }
 
+    // P0-2: Derive amountPaise from service request when not provided
+    let amountPaise = params.amountPaise;
+    if (amountPaise == null) {
+      const serviceFeePaise = (serviceInstance as any).serviceFeePaise;
+      if (!serviceFeePaise) {
+        throw new AppError(
+          'AMOUNT_REQUIRED',
+          'Could not determine payment amount from service request. Please provide amountPaise.',
+          400,
+        );
+      }
+      amountPaise = Number(serviceFeePaise);
+    }
+
     // Create Razorpay order
     const razorpayOrder = await this.razorpay.createOrder({
-      amount: paiseToRazorpayAmount(BigInt(params.amountPaise)),
+      amount: paiseToRazorpayAmount(BigInt(amountPaise)),
       currency: params.currency,
       receipt: `sr_${params.serviceRequestId}_${Date.now()}`,
       notes: {
@@ -56,7 +71,7 @@ export class PaymentService {
       data: {
         serviceRequestId: params.serviceRequestId,
         customerId: params.customerId,
-        amountPaise: params.amountPaise,
+        amountPaise: amountPaise,
         paymentMethodType: 'domestic',
         razorpayOrderId: razorpayOrder.id,
         status: 'pending',
@@ -65,7 +80,7 @@ export class PaymentService {
 
     return {
       orderId: razorpayOrder.id,
-      amountPaise: params.amountPaise.toString(),
+      amountPaise: amountPaise.toString(),
       currency: params.currency,
       razorpayKeyId: this.razorpay.publicKeyId,
       paymentId: payment.id,
@@ -75,14 +90,15 @@ export class PaymentService {
 
   /**
    * Verifies Razorpay payment signature after Flutter payment completion.
+   * P0-3: serviceRequestId and amountPaise are optional — looked up from stored order.
    * Story 4.1 AC2
    */
   async verifyPayment(params: {
     razorpayOrderId: string;
     razorpayPaymentId: string;
     razorpaySignature: string;
-    serviceRequestId: string;
-    amountPaise: number;
+    serviceRequestId?: string;
+    amountPaise?: number;
     customerId: string;
     cityId: string;
     paymentMethodType?: string;
@@ -113,21 +129,34 @@ export class PaymentService {
       };
     }
 
+    // P0-3: Derive serviceRequestId and amountPaise from stored order when not provided
+    const serviceRequestId = params.serviceRequestId ?? existingPayment?.serviceRequestId;
+    const amountPaise = params.amountPaise ?? (existingPayment ? Number(existingPayment.amountPaise) : undefined);
+
+    if (!serviceRequestId) {
+      throw new AppError('SERVICE_REQUEST_REQUIRED', 'Could not determine service request for this payment', 400);
+    }
+    if (amountPaise == null) {
+      throw new AppError('AMOUNT_REQUIRED', 'Could not determine amount for this payment', 400);
+    }
+
     // Create or update payment record
     const payment = await this.prisma.payment.upsert({
       where: { id: existingPayment?.id || 'new' },
       update: {
         razorpayPaymentId: params.razorpayPaymentId,
-        status: 'pending',
+        status: 'paid',
+        paidAt: new Date(),
       },
       create: {
-        serviceRequestId: params.serviceRequestId,
+        serviceRequestId,
         customerId: params.customerId,
-        amountPaise: params.amountPaise,
+        amountPaise: amountPaise,
         paymentMethodType: params.paymentMethodType || 'domestic',
         razorpayPaymentId: params.razorpayPaymentId,
         razorpayOrderId: params.razorpayOrderId,
-        status: 'pending',
+        status: 'paid',
+        paidAt: new Date(),
       },
     });
 
@@ -139,14 +168,14 @@ export class PaymentService {
         performedBy: params.customerId,
         details: JSON.stringify({
           oldState: existingPayment?.status || 'pending',
-          newState: 'pending',
+          newState: 'paid',
         }),
       },
     });
 
     return {
       paymentId: payment.id,
-      status: 'pending',
+      status: 'paid',
       amountPaise: payment.amountPaise.toString(),
       serviceRequestId: payment.serviceRequestId,
     };
@@ -224,5 +253,91 @@ export class PaymentService {
       paidAt: p.paidAt?.toISOString() ?? null,
       createdAt: p.createdAt.toISOString(),
     }));
+  }
+
+  /**
+   * P0-4: Gets paginated payment history for a customer.
+   */
+  async getPaymentHistory(
+    customerId: string,
+    filters: { page: number; limit: number; status?: string },
+  ) {
+    const where: any = { customerId };
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    const [payments, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (filters.page - 1) * filters.limit,
+        take: filters.limit,
+      }),
+      this.prisma.payment.count({ where }),
+    ]);
+
+    return {
+      payments: payments.map((p) => ({
+        id: p.id,
+        serviceRequestId: p.serviceRequestId,
+        amountPaise: p.amountPaise.toString(),
+        status: p.status,
+        paymentMethodType: p.paymentMethodType,
+        razorpayPaymentId: p.razorpayPaymentId,
+        paidAt: p.paidAt?.toISOString() ?? null,
+        createdAt: p.createdAt.toISOString(),
+      })),
+      meta: {
+        page: filters.page,
+        limit: filters.limit,
+        total,
+        totalPages: Math.ceil(total / filters.limit),
+      },
+    };
+  }
+
+  /**
+   * P2-1: Records a payment failure for audit trail.
+   */
+  async recordFailure(params: {
+    razorpayOrderId: string;
+    reason: string;
+    customerId: string;
+  }) {
+    const existingPayment = await this.prisma.payment.findFirst({
+      where: { razorpayOrderId: params.razorpayOrderId },
+    });
+
+    if (!existingPayment) {
+      throw new AppError('PAYMENT_NOT_FOUND', 'No payment found for this order', 404);
+    }
+
+    // Update status to failed
+    const payment = await this.prisma.payment.update({
+      where: { id: existingPayment.id },
+      data: { status: 'failed' },
+    });
+
+    // Log the failure
+    await this.prisma.paymentAuditLog.create({
+      data: {
+        paymentId: payment.id,
+        action: 'payment_failed',
+        performedBy: params.customerId,
+        details: JSON.stringify({
+          oldState: existingPayment.status,
+          newState: 'failed',
+          reason: params.reason,
+          razorpayOrderId: params.razorpayOrderId,
+        }),
+      },
+    });
+
+    return {
+      paymentId: payment.id,
+      status: 'failed',
+      reason: params.reason,
+    };
   }
 }

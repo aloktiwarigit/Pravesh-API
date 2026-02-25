@@ -30,6 +30,8 @@ import { createDealerManagementController } from '../domains/franchise/dealer-ma
 import { createFranchiseRevenueController } from '../domains/franchise/franchise-revenue.controller';
 import { createTrainingModuleController } from '../domains/franchise/training-module.controller';
 import { createCorporateAuditController } from '../domains/franchise/corporate-audit.controller';
+import { createFranchiseOwnerProfileController } from '../domains/franchise/franchise-owner-profile.controller';
+import { createAdminDashboardController } from '../domains/admin/admin-dashboard.controller';
 import { createAnalyticsController } from '../domains/analytics/analytics.controller';
 import { createExportController } from '../domains/analytics/export.controller';
 import { createFeatureUsageController } from '../domains/analytics/feature-usage.controller';
@@ -55,6 +57,9 @@ import { createServiceCatalogController } from '../domains/services/service-cata
 // Service requests (Story 2-7: Submit Service Request)
 import { createServiceRequestController } from '../domains/services/service-request.controller';
 
+// Packages
+import { createPackagesController } from '../domains/services/packages.controller';
+
 // Customer service lifecycle
 import { createCustomerServicesController } from '../domains/services/customer-services.controller';
 
@@ -75,6 +80,7 @@ import { ChecklistService } from '../domains/agents/checklist.service';
 import { CashCollectionService } from '../domains/agents/cash-collection.service';
 import { AgentAssignmentService } from '../domains/agents/agent-assignment.service';
 import { agentTaskRoutes } from '../domains/agents/agent-task.controller';
+import { createAgentDashboardController } from '../domains/agents/agent-dashboard.controller';
 import { checklistRoutes } from '../domains/agents/checklist.controller';
 import { cashCollectionRoutes } from '../domains/agents/cash-collection.controller';
 import { agentAssignmentRoutes } from '../domains/agents/agent-assignment.controller';
@@ -86,10 +92,24 @@ import { createReferralRouter } from '../domains/referrals/referral.router';
 // Payment domain (Stories 4.1, 4.2, 4.13)
 import { createPaymentController } from '../domains/payments/payment.controller';
 import { createRefundController } from '../domains/payments/refund.controller';
+import { createPricingController } from '../domains/payments/pricing.controller';
 import { RazorpayClient } from '../core/integrations/razorpay.client';
 
 // Support domain (Story 10.X)
 import { createTicketController } from '../domains/support/ticket.controller';
+import supportRouter from '../domains/support/support.controller';
+
+// Dispute domain (Story 3-17)
+import { disputeRoutes } from '../domains/agents/dispute.controller';
+import { DisputeService } from '../domains/agents/dispute.service';
+
+// Training domain (Story 3-18)
+import { trainingRoutes } from '../domains/agents/training.controller';
+import { TrainingService } from '../domains/agents/training.service';
+
+// Stakeholder domain (Story 6.11)
+import { stakeholderRoutes } from '../domains/documents/stakeholders.controller';
+import { StakeholderService } from '../domains/documents/stakeholders.service';
 
 // Court tracking (Story 4.1X)
 import { createCourtTrackingController } from '../domains/lawyers/court-tracking.controller';
@@ -103,6 +123,13 @@ import opsLegalMarketplaceRoutes from './ops-legal-marketplace.routes';
 // Ops dashboard (Story 5.1)
 import { createDashboardController } from '../domains/ops/dashboard.controller';
 import { createOpsServiceRequestsController } from '../domains/ops/ops-service-requests.controller';
+
+// NRI payment dashboard (Story 13-4)
+import { NriPaymentDashboardService } from '../domains/ops/nri-payment-dashboard.service';
+import { nriPaymentDashboardRoutes } from '../domains/ops/nri-payment-dashboard.controller';
+
+// Cash reconciliation API (Story 4.8)
+import { createCashReconciliationApiController } from '../domains/payments/cash-reconciliation-api.controller';
 
 // Franchise territories (Story 8.X)
 import { createTerritoryController } from '../domains/franchise/territory.controller';
@@ -244,6 +271,10 @@ export function createApiRouter(services: ServiceContainer, prismaInstance?: Pri
   if (prismaInstance) {
     const documentService = new DocumentsService(prismaInstance, boss ?? null);
     router.use('/documents', documentsRoutes(documentService));
+
+    // Story 6.11: Stakeholder Management
+    const stakeholderService = new StakeholderService(prismaInstance, boss ?? null);
+    router.use('/stakeholders', stakeholderRoutes(stakeholderService));
   }
 
   // FR8-FR10: Service Catalog Browsing
@@ -253,21 +284,37 @@ export function createApiRouter(services: ServiceContainer, prismaInstance?: Pri
     router.use('/services/categories', createServiceCatalogController(prismaInstance));
   }
 
+  // Packages (Flutter: GET /api/v1/packages, GET /api/v1/packages/:id)
+  if (prismaInstance) {
+    router.use('/packages', createPackagesController(prismaInstance));
+  }
+
   // Story 2-7: Service Request Submission
   if (prismaInstance) {
     router.use('/service-requests', createServiceRequestController(prismaInstance));
   }
 
-  // Agent domain: Tasks, Checklists, Cash Collection (Stories 3-3, 3-5, 3-13)
+  // Agent domain: Dashboard, Tasks, Checklists, Cash Collection
   if (prismaInstance) {
+    // Dashboard endpoints must be mounted before task routes
+    // so /agents/tasks/summary is matched before /:taskId
+    router.use('/agents', createAgentDashboardController(prismaInstance));
     const agentTaskService = new AgentTaskService(prismaInstance, boss ?? null);
     const checklistService = new ChecklistService(prismaInstance, boss ?? null);
     const cashCollectionService = new CashCollectionService(prismaInstance, boss ?? null);
     const agentAssignmentService = new AgentAssignmentService(prismaInstance, boss ?? null);
-    router.use('/agents/tasks', agentTaskRoutes(agentTaskService));
+    router.use('/agents/tasks', agentTaskRoutes(agentTaskService, prismaInstance));
     router.use('/agents/assignments', agentAssignmentRoutes(agentAssignmentService));
     router.use('/agents/checklists', checklistRoutes(checklistService));
     router.use('/agents/cash', cashCollectionRoutes(cashCollectionService));
+
+    // Story 3-17: Dispute Flagging
+    const disputeService = new DisputeService(prismaInstance, boss ?? null);
+    router.use('/agents/disputes', disputeRoutes(disputeService));
+
+    // Story 3-18: Agent Training
+    const trainingService = new TrainingService(prismaInstance);
+    router.use('/agents/training', trainingRoutes(trainingService));
   }
 
   // Story 4.11: Referral Credits
@@ -293,12 +340,16 @@ export function createApiRouter(services: ServiceContainer, prismaInstance?: Pri
     router.use('/payments', createPaymentController(prismaInstance, razorpay));
     router.use('/payments', createRefundController(prismaInstance, razorpay));
     router.use('/refunds', createRefundController(prismaInstance, razorpay));
+
+    // Story 4.4: Pricing Calculation (P2-4)
+    router.use('/pricing', createPricingController(prismaInstance));
   }
 
-  // Story 10.X: Support Tickets
+  // Story 10.X: Support Tickets + Full Support Module
   if (prismaInstance) {
     router.use('/support/tickets', createTicketController(prismaInstance));
   }
+  router.use('/support', supportRouter);
 
   // Story 4.1X: Court Hearing Tracking
   if (prismaInstance) {
@@ -310,6 +361,13 @@ export function createApiRouter(services: ServiceContainer, prismaInstance?: Pri
   if (prismaInstance) {
     router.use('/ops/dashboard', createDashboardController(prismaInstance));
     router.use('/ops/service-requests', createOpsServiceRequestsController(prismaInstance));
+
+    // Story 13-4: NRI Payment Dashboard
+    const nriPaymentService = new NriPaymentDashboardService(prismaInstance);
+    router.use('/ops/nri-payments', nriPaymentDashboardRoutes(nriPaymentService));
+
+    // Story 4.8: Cash Reconciliation API
+    router.use('/cash/reconciliation', createCashReconciliationApiController(prismaInstance));
   }
 
   // Story 8.X: Franchise Territories
@@ -329,6 +387,16 @@ export function createApiRouter(services: ServiceContainer, prismaInstance?: Pri
   router.use('/legal-cases', legalCaseRoutes);
   router.use('/legal-opinions', legalOpinionRoutes);
   router.use('/ops/legal-marketplace', opsLegalMarketplaceRoutes);
+
+  // Franchise owner profile
+  if (prismaInstance) {
+    router.use('/franchise-owners/me', createFranchiseOwnerProfileController(prismaInstance));
+  }
+
+  // Admin dashboard
+  if (prismaInstance) {
+    router.use('/admin', createAdminDashboardController(prismaInstance));
+  }
 
   return router;
 }

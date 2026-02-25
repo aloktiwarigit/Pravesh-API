@@ -174,11 +174,13 @@ export class BuildersService {
     });
   }
 
-  async getProjects(builderId: string) {
+  async getProjects(builderId: string, cursor?: string, limit = 50) {
     return this.prisma.builderProject.findMany({
       where: { builderId },
       include: { _count: { select: { units: true } } },
       orderBy: { createdAt: 'desc' },
+      take: limit,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
   }
 
@@ -191,10 +193,12 @@ export class BuildersService {
     return project;
   }
 
-  async getPendingBuilders() {
+  async getPendingBuilders(cursor?: string, limit = 50) {
     return this.prisma.builder.findMany({
       where: { status: 'PENDING_VERIFICATION' },
       orderBy: { createdAt: 'asc' },
+      take: limit,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
   }
 
@@ -874,6 +878,7 @@ export class BuildersService {
     return this.prisma.projectUnit.findMany({
       where,
       select: { id: true, buyerPhone: true },
+      take: 5000,
     });
   }
 

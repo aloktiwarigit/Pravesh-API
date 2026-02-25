@@ -15,9 +15,25 @@ export class UserService {
   // ============================================================
 
   async getProfile(firebaseUid: string) {
-    const user = await this.prisma.user.findUnique({
+    let user = await this.prisma.user.findUnique({
       where: { firebaseUid },
     });
+
+    // Auto-provision dev users when DEV_AUTH_BYPASS is active
+    if (!user && process.env.DEV_AUTH_BYPASS === 'true') {
+      user = await this.prisma.user.create({
+        data: {
+          firebaseUid,
+          phone: `DEV${firebaseUid.substring(0, 8)}`,
+          displayName: firebaseUid.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          roles: [firebaseUid.includes('admin') ? 'super_admin' : firebaseUid.replace('debug-', '') || 'customer'],
+          primaryRole: firebaseUid.includes('admin') ? 'super_admin' : firebaseUid.replace('debug-', '') || 'customer',
+          status: 'ACTIVE',
+          languagePref: 'en',
+          lastLoginAt: new Date(),
+        },
+      });
+    }
 
     if (!user) {
       throw new BusinessError('USER_NOT_FOUND', 'User not found', 404);
