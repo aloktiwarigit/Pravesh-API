@@ -26,8 +26,8 @@ declare global {
 export async function authenticate(req: Request, res: Response, next: NextFunction) {
   try {
     // Dev/test mode: accept test headers only with explicit opt-in
-    // DEV_AUTH_BYPASS works in any environment (including production for QA testing)
-    if (process.env.DEV_AUTH_BYPASS === 'true') {
+    // NEVER allow DEV_AUTH_BYPASS in production — only dev/test environments
+    if (process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_BYPASS === 'true') {
       const devUserId = req.headers['x-dev-user-id'] as string;
       const devRole = req.headers['x-dev-role'] as string;
       const devCityId = req.headers['x-dev-city-id'] as string;

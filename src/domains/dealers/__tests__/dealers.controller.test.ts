@@ -47,6 +47,9 @@ function createMockPrisma() {
       findUnique: vi.fn(),
       create: vi.fn(),
     },
+    city: {
+      findFirst: vi.fn(),
+    },
   } as any;
 }
 
