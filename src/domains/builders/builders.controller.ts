@@ -181,7 +181,7 @@ export function createBuildersController(prisma: PrismaClient): Router {
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const input = bulkServiceRequestSchema.parse(req.body);
-        const builderId = (req as any).user?.builderId;
+        const builderId = (req as any).user?.builderId || req.body.builderId;
         const result = await service.createBulkServiceRequest(
           builderId,
           req.params.projectId,

@@ -51,11 +51,11 @@ export function createTicketController(prisma: PrismaClient): Router {
   /**
    * POST /api/v1/support/tickets
    * Create a new support ticket.
-   * Roles: customer, support_agent, ops_manager
+   * Roles: customer, support, ops_manager
    */
   router.post(
     '/',
-    authorize('customer', 'support_agent', 'ops_manager'),
+    authorize('customer', 'support', 'ops_manager'),
     async (req, res, next) => {
       try {
         const input = createTicketSchema.parse(req.body);
@@ -81,11 +81,11 @@ export function createTicketController(prisma: PrismaClient): Router {
   /**
    * GET /api/v1/support/tickets
    * List tickets with filters.
-   * Roles: customer, support_agent, ops_manager
+   * Roles: customer, support, ops_manager
    */
   router.get(
     '/',
-    authorize('customer', 'support_agent', 'ops_manager'),
+    authorize('customer', 'support', 'ops_manager'),
     async (req, res, next) => {
       try {
         const filters = listTicketsSchema.parse(req.query);
@@ -95,15 +95,15 @@ export function createTicketController(prisma: PrismaClient): Router {
         const customerId = user.role === 'customer' ? user.id : filters.customerId;
 
         // Support agents see tickets assigned to them or unassigned
-        const assignedTo = user.role === 'support_agent' && !filters.assignedTo
+        const assignedTo = user.role === 'support' && !filters.assignedTo
           ? user.id
           : filters.assignedTo;
 
         const result = await ticketService.listTickets({
           ...filters,
           customerId,
-          assignedTo: user.role === 'support_agent' ? undefined : assignedTo,
-          unassignedOnly: user.role === 'support_agent' ? filters.unassignedOnly : false,
+          assignedTo: user.role === 'support' ? undefined : assignedTo,
+          unassignedOnly: user.role === 'support' ? filters.unassignedOnly : false,
           cityId: user.role === 'super_admin' ? undefined : user.cityId,
         });
 
@@ -117,11 +117,11 @@ export function createTicketController(prisma: PrismaClient): Router {
   /**
    * GET /api/v1/support/tickets/metrics
    * Get ticket metrics for dashboard.
-   * Roles: support_agent, ops_manager
+   * Roles: support, ops_manager
    */
   router.get(
     '/metrics',
-    authorize('support_agent', 'ops_manager'),
+    authorize('support', 'ops_manager'),
     async (req, res, next) => {
       try {
         const user = (req as any).user!;
@@ -139,11 +139,11 @@ export function createTicketController(prisma: PrismaClient): Router {
   /**
    * GET /api/v1/support/tickets/at-risk
    * Get tickets approaching SLA breach.
-   * Roles: support_agent, ops_manager
+   * Roles: support, ops_manager
    */
   router.get(
     '/at-risk',
-    authorize('support_agent', 'ops_manager'),
+    authorize('support', 'ops_manager'),
     async (req, res, next) => {
       try {
         const user = (req as any).user!;
@@ -162,11 +162,11 @@ export function createTicketController(prisma: PrismaClient): Router {
   /**
    * GET /api/v1/support/tickets/:id
    * Get ticket details with messages.
-   * Roles: customer, support_agent, ops_manager
+   * Roles: customer, support, ops_manager
    */
   router.get(
     '/:id',
-    authorize('customer', 'support_agent', 'ops_manager'),
+    authorize('customer', 'support', 'ops_manager'),
     async (req, res, next) => {
       try {
         const { id } = req.params;
@@ -197,11 +197,11 @@ export function createTicketController(prisma: PrismaClient): Router {
   /**
    * PATCH /api/v1/support/tickets/:id
    * Update ticket status or priority.
-   * Roles: support_agent, ops_manager
+   * Roles: support, ops_manager
    */
   router.patch(
     '/:id',
-    authorize('support_agent', 'ops_manager'),
+    authorize('support', 'ops_manager'),
     async (req, res, next) => {
       try {
         const { id } = req.params;
@@ -241,11 +241,11 @@ export function createTicketController(prisma: PrismaClient): Router {
   /**
    * POST /api/v1/support/tickets/:id/resolve
    * Resolve a ticket.
-   * Roles: support_agent, ops_manager
+   * Roles: support, ops_manager
    */
   router.post(
     '/:id/resolve',
-    authorize('support_agent', 'ops_manager'),
+    authorize('support', 'ops_manager'),
     async (req, res, next) => {
       try {
         const { id } = req.params;
@@ -262,11 +262,11 @@ export function createTicketController(prisma: PrismaClient): Router {
   /**
    * POST /api/v1/support/tickets/:id/close
    * Close a ticket.
-   * Roles: support_agent, ops_manager
+   * Roles: support, ops_manager
    */
   router.post(
     '/:id/close',
-    authorize('support_agent', 'ops_manager'),
+    authorize('support', 'ops_manager'),
     async (req, res, next) => {
       try {
         const { id } = req.params;
@@ -283,11 +283,11 @@ export function createTicketController(prisma: PrismaClient): Router {
   /**
    * POST /api/v1/support/tickets/:id/reopen
    * Reopen a resolved or closed ticket.
-   * Roles: support_agent, ops_manager
+   * Roles: support, ops_manager
    */
   router.post(
     '/:id/reopen',
-    authorize('support_agent', 'ops_manager'),
+    authorize('support', 'ops_manager'),
     async (req, res, next) => {
       try {
         const { id } = req.params;
@@ -304,11 +304,11 @@ export function createTicketController(prisma: PrismaClient): Router {
   /**
    * POST /api/v1/support/tickets/:id/messages
    * Add a message to a ticket.
-   * Roles: customer, support_agent, ops_manager
+   * Roles: customer, support, ops_manager
    */
   router.post(
     '/:id/messages',
-    authorize('customer', 'support_agent', 'ops_manager'),
+    authorize('customer', 'support', 'ops_manager'),
     async (req, res, next) => {
       try {
         const { id } = req.params;
@@ -346,11 +346,11 @@ export function createTicketController(prisma: PrismaClient): Router {
   /**
    * GET /api/v1/support/tickets/:id/messages
    * Get messages for a ticket.
-   * Roles: customer, support_agent, ops_manager
+   * Roles: customer, support, ops_manager
    */
   router.get(
     '/:id/messages',
-    authorize('customer', 'support_agent', 'ops_manager'),
+    authorize('customer', 'support', 'ops_manager'),
     async (req, res, next) => {
       try {
         const { id } = req.params;

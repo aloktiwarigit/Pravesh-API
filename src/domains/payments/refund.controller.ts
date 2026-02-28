@@ -70,11 +70,11 @@ export function createRefundController(
   /**
    * GET /api/v1/refunds
    * List refunds with filters.
-   * Roles: ops_manager, super_admin, support_agent
+   * Roles: ops_manager, super_admin, support
    */
   router.get(
     '/',
-    authorize('ops_manager', 'super_admin', 'support_agent'),
+    authorize('ops_manager', 'super_admin', 'support'),
     async (req, res, next) => {
       try {
         const filters = listRefundsSchema.parse(req.query);
@@ -95,11 +95,11 @@ export function createRefundController(
   /**
    * GET /api/v1/refunds/:id
    * Get refund details.
-   * Roles: ops_manager, super_admin, support_agent
+   * Roles: ops_manager, super_admin, support
    */
   router.get(
     '/:id',
-    authorize('ops_manager', 'super_admin', 'support_agent'),
+    authorize('ops_manager', 'super_admin', 'support'),
     async (req, res, next) => {
       try {
         const { id } = req.params;

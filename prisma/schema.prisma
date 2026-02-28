@@ -2661,8 +2661,8 @@ model SyncLog {
 model CashReceipt {
   id                  String    @id @default(uuid())
   receiptId           String    @unique @map("receipt_id") // Pre-allocated UUID from client
-  taskId              String    @map("task_id")
-  serviceRequestId    String    @map("service_request_id")
+  taskId              String?   @map("task_id") // Nullable for standalone collections
+  serviceRequestId    String?   @map("service_request_id") // Nullable for standalone collections
   amountPaise         String    @map("amount_paise") // BigInt as string
   customerName        String    @map("customer_name")
   serviceName         String    @map("service_name")
@@ -2676,17 +2676,20 @@ model CashReceipt {
   isReconciled        Boolean   @default(false) @map("is_reconciled")
   depositId           String?   @map("deposit_id")
   reconciledAt        DateTime? @map("reconciled_at")
+  isStandalone        Boolean   @default(false) @map("is_standalone") // Standalone vs task-linked
+  notes               String?   @db.Text // Reason/context for standalone collections
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  serviceRequest      ServiceRequest @relation(fields: [serviceRequestId], references: [id])
-  city                City           @relation(fields: [cityId], references: [id])
-  deposit             CashDeposit?   @relation(fields: [depositId], references: [id])
+  serviceRequest      ServiceRequest? @relation(fields: [serviceRequestId], references: [id])
+  city                City            @relation(fields: [cityId], references: [id])
+  deposit             CashDeposit?    @relation(fields: [depositId], references: [id])
 
   @@index([agentId])
   @@index([serviceRequestId])
   @@index([cityId])
   @@index([isReconciled])
+  @@index([isStandalone])
   @@map("cash_receipts")
 }
 

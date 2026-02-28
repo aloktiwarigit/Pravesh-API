@@ -13,7 +13,7 @@ export function createFeatureUsageController(service: FeatureUsageService): Rout
   // POST /api/v1/feature-usage/track — Track event (requires authentication)
   router.post(
     '/track',
-    authorize('super_admin', 'ops_manager', 'franchise_owner', 'support_agent', 'agent', 'customer', 'lawyer', 'system'),
+    authorize('super_admin', 'ops_manager', 'franchise_owner', 'support', 'agent', 'customer', 'lawyer', 'system'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = z.object({

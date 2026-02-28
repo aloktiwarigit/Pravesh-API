@@ -18,6 +18,20 @@ const createReceiptSchema = z.object({
   clientTimestamp: z.string().datetime(),
 });
 
+const standaloneReceiptSchema = z.object({
+  receiptId: z.string().uuid(),
+  amountPaise: z.string().regex(/^\d+$/),
+  customerName: z.string().min(1),
+  serviceName: z.string().min(1),
+  gpsLat: z.number().min(-90).max(90),
+  gpsLng: z.number().min(-180).max(180),
+  signatureHash: z.string().min(1),
+  pdfUrl: z.string().url().optional(),
+  idempotencyKey: z.string().optional(),
+  clientTimestamp: z.string().datetime(),
+  notes: z.string().max(500).optional(),
+});
+
 const recordDepositSchema = z.object({
   receiptIds: z.array(z.string().uuid()).min(1),
   depositAmountPaise: z.string().regex(/^\d+$/),
@@ -46,6 +60,28 @@ export function cashCollectionRoutes(
         const body = createReceiptSchema.parse(req.body);
         const user = (req as any).user!;
         const result = await service.createReceipt({
+          ...body,
+          agentId: user.id,
+          cityId: user.cityId,
+        });
+        res.status(result.alreadyProcessed ? 200 : 201).json({
+          success: true,
+          data: result,
+        });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  // POST /api/v1/agents/cash/standalone-receipts
+  router.post(
+    '/standalone-receipts',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const body = standaloneReceiptSchema.parse(req.body);
+        const user = (req as any).user!;
+        const result = await service.createStandaloneReceipt({
           ...body,
           agentId: user.id,
           cityId: user.cityId,

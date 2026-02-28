@@ -68,7 +68,15 @@ export class ServiceRequestSubmitService {
       // 4. Generate request number via PostgreSQL sequence
       const requestNumber = await this.generateRequestNumber(tx);
 
-      // 5. Create ServiceRequest
+      // 5. Calculate service fee
+      const serviceFeePaise = await this.calculateServiceFee(
+        tx,
+        cityId,
+        serviceDefinition,
+        payload.estimatedValuePaise,
+      );
+
+      // 6. Create ServiceRequest
       const serviceRequest = await tx.serviceRequest.create({
         data: {
           serviceInstanceId: serviceInstance.id,
@@ -77,6 +85,7 @@ export class ServiceRequestSubmitService {
           cityId,
           status: 'pending',
           requestNumber,
+          serviceFeePaise: serviceFeePaise,
           metadata: {
             source: 'flutter_app',
             propertyType: payload.propertyType,
@@ -180,6 +189,68 @@ export class ServiceRequestSubmitService {
     });
 
     return newDef;
+  }
+
+  /**
+   * Calculate service fee using CityServiceFee slabs or ServiceDefinition fallback.
+   * Returns null if no fee can be determined (should not block request creation).
+   */
+  private async calculateServiceFee(
+    tx: Parameters<Parameters<PrismaClient['$transaction']>[0]>[0],
+    cityId: string,
+    serviceDefinition: { id: string; definition: unknown },
+    estimatedValuePaise?: number,
+  ): Promise<number | null> {
+    try {
+      const now = new Date();
+
+      // Try 1: CityServiceFee slab-based pricing
+      const schedule = await (tx as any).cityServiceFee.findFirst({
+        where: {
+          cityId,
+          serviceDefinitionId: serviceDefinition.id,
+          isActive: true,
+          effectiveFrom: { lte: now },
+          OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }],
+        },
+        orderBy: { effectiveFrom: 'desc' },
+      });
+
+      if (schedule) {
+        const config = schedule.feeConfig as Record<string, unknown>;
+        let feePaise = (config.baseFeePaise as number) ?? 0;
+
+        // Apply slab pricing if property value is provided
+        const slabs = config.propertyValueSlabs as Array<{
+          minValuePaise: number;
+          maxValuePaise: number | null;
+          feePaise: number;
+        }> | undefined;
+
+        if (slabs?.length && estimatedValuePaise) {
+          const slab = slabs.find(
+            (s) =>
+              estimatedValuePaise >= s.minValuePaise &&
+              (s.maxValuePaise === null || estimatedValuePaise <= s.maxValuePaise),
+          );
+          if (slab) feePaise = slab.feePaise;
+        }
+
+        return feePaise;
+      }
+
+      // Try 2: Fallback to ServiceDefinition base fee
+      const def = serviceDefinition.definition as Record<string, unknown> | null;
+      const fees = def?.estimatedFees as Record<string, unknown> | undefined;
+      if (fees?.serviceFeePaise) {
+        return fees.serviceFeePaise as number;
+      }
+
+      return null;
+    } catch {
+      // Fee calculation failure should not block request creation
+      return null;
+    }
   }
 
   private async generateRequestNumber(

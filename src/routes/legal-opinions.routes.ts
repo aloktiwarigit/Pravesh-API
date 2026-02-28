@@ -19,14 +19,14 @@ const lawyerController = new LawyerController(lawyerService);
 router.post('/', authorize('lawyer'), lawyerController.submitOpinion);
 
 // POST /api/v1/legal-opinions/review — Ops reviews opinion (ops role)
-router.post('/review', authorize('ops'), lawyerController.reviewOpinion);
+router.post('/review', authorize('ops_manager'), lawyerController.reviewOpinion);
 
 // ============================================================
 // Story 12-7: Opinion Delivery
 // ============================================================
 
 // POST /api/v1/legal-opinions/:opinionId/deliver — Ops delivers approved opinion (ops role)
-router.post('/:opinionId/deliver', authorize('ops'), lawyerController.deliverOpinion);
+router.post('/:opinionId/deliver', authorize('ops_manager'), lawyerController.deliverOpinion);
 
 // ============================================================
 // Story 12-9: Customer Rates Opinion

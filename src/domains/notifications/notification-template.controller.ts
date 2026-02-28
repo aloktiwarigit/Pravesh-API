@@ -89,7 +89,7 @@ export function createNotificationTemplateController(prisma: PrismaClient): Rout
    * GET /monitoring/metrics
    * Dashboard metrics for ops/admin.
    */
-  router.get('/monitoring/metrics', authorize('admin'), async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/monitoring/metrics', authorize('super_admin'), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const hours = parseInt(req.query.hours as string) || 24;
       const metrics = await metricsService.getDashboardMetrics(hours);
@@ -103,7 +103,7 @@ export function createNotificationTemplateController(prisma: PrismaClient): Rout
    * GET /monitoring/failed
    * Recent failed notifications for ops/admin.
    */
-  router.get('/monitoring/failed', authorize('admin'), async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/monitoring/failed', authorize('super_admin'), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
@@ -118,7 +118,7 @@ export function createNotificationTemplateController(prisma: PrismaClient): Rout
    * POST /monitoring/retry/:id
    * Retry a failed notification.
    */
-  router.post('/monitoring/retry/:id', authorize('admin'), async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/monitoring/retry/:id', authorize('super_admin'), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await metricsService.retryFailedNotification(req.params.id);
       res.json({ success: true, data: result });

@@ -336,8 +336,11 @@ if (process.env.NODE_ENV !== 'test') {
 // Start PgBoss in background AFTER server is listening.
 // All boss.work()/boss.schedule() calls are deferred here because
 // they require the PgBoss schema (created by boss.start()).
-boss.start().then(async () => {
+const bossReadyPromise = boss.start().then(async () => {
   logger.info('PgBoss started — registering background jobs');
+  // Create queues used by agent, document, and other services
+  await boss.createQueue('notification.send');
+  await boss.createQueue('cash.receipt-recorded');
   await registerEpic13Jobs(boss, prisma as unknown as PrismaClient);
   logger.info('PgBoss background jobs now active');
 }).catch((err: unknown) => {
@@ -388,4 +391,4 @@ async function gracefulShutdown(signal: string) {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-export { app, server, services, serverReady };
+export { app, server, services, serverReady, bossReadyPromise };

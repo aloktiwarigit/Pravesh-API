@@ -27,6 +27,22 @@ export interface CashReceiptCreatePayload {
   clientTimestamp: string;
 }
 
+export interface StandaloneReceiptCreatePayload {
+  receiptId: string;
+  amountPaise: string;
+  customerName: string;
+  serviceName: string;
+  agentId: string;
+  gpsLat: number;
+  gpsLng: number;
+  signatureHash: string;
+  pdfUrl?: string;
+  cityId: string;
+  idempotencyKey?: string;
+  clientTimestamp: string;
+  notes?: string;
+}
+
 export interface DepositRecordPayload {
   agentId: string;
   receiptIds: string[];
@@ -92,6 +108,53 @@ export class CashCollectionService {
       agentId: payload.agentId,
       amountPaise: payload.amountPaise,
       cityId: payload.cityId,
+    });
+
+    return { alreadyProcessed: false, receipt };
+  }
+
+  /**
+   * Record a standalone cash receipt (no task context).
+   * Used when agent collects cash outside a specific task.
+   */
+  async createStandaloneReceipt(payload: StandaloneReceiptCreatePayload) {
+    // Idempotency: check by receiptId
+    const existing = await this.prisma.cashReceipt.findUnique({
+      where: { receiptId: payload.receiptId },
+    });
+
+    if (existing) {
+      return { alreadyProcessed: true, receipt: existing };
+    }
+
+    const receipt = await this.prisma.cashReceipt.create({
+      data: {
+        receiptId: payload.receiptId,
+        taskId: null,
+        serviceRequestId: null,
+        amountPaise: payload.amountPaise,
+        customerName: payload.customerName,
+        serviceName: payload.serviceName,
+        agentId: payload.agentId,
+        gpsLat: payload.gpsLat,
+        gpsLng: payload.gpsLng,
+        signatureHash: payload.signatureHash,
+        pdfUrl: payload.pdfUrl,
+        cityId: payload.cityId,
+        clientTimestamp: new Date(payload.clientTimestamp),
+        isReconciled: false,
+        isStandalone: true,
+        notes: payload.notes,
+      },
+    });
+
+    // Queue for daily reconciliation tracking
+    await this.boss.send('cash.receipt-recorded', {
+      receiptId: receipt.receiptId,
+      agentId: payload.agentId,
+      amountPaise: payload.amountPaise,
+      cityId: payload.cityId,
+      isStandalone: true,
     });
 
     return { alreadyProcessed: false, receipt };

@@ -16,14 +16,14 @@ const lawyerController = new LawyerController(lawyerService);
 // ============================================================
 
 // POST /api/v1/legal-cases — Ops creates a legal case (ops role)
-router.post('/', authorize('ops'), lawyerController.createLegalCase);
+router.post('/', authorize('ops_manager'), lawyerController.createLegalCase);
 
 // ============================================================
 // Story 12-4: Case Accept/Decline
 // ============================================================
 
 // GET /api/v1/legal-cases/:caseId — Lawyer views case details (lawyer role)
-router.get('/:caseId', authorize('lawyer', 'ops'), lawyerController.getCaseDetails);
+router.get('/:caseId', authorize('lawyer', 'ops_manager'), lawyerController.getCaseDetails);
 
 // POST /api/v1/legal-cases/:caseId/accept — Lawyer accepts case (lawyer role)
 router.post('/:caseId/accept', authorize('lawyer'), lawyerController.acceptCase);
@@ -49,13 +49,13 @@ router.post('/:caseId/document-requests', authorize('lawyer'), lawyerController.
 // ============================================================
 
 // POST /api/v1/legal-cases/:caseId/complete — Ops marks case completed (ops role)
-router.post('/:caseId/complete', authorize('ops'), lawyerController.completeCase);
+router.post('/:caseId/complete', authorize('ops_manager'), lawyerController.completeCase);
 
 // ============================================================
 // Story 12-11: Case Reassignment
 // ============================================================
 
 // POST /api/v1/legal-cases/:caseId/reassign — Ops reassigns case (ops role)
-router.post('/:caseId/reassign', authorize('ops'), lawyerController.reassignCase);
+router.post('/:caseId/reassign', authorize('ops_manager'), lawyerController.reassignCase);
 
 export default router;

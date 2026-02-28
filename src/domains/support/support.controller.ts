@@ -33,7 +33,7 @@ const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => P
 // GET /api/v1/support/customers/search?query=...&searchType=...
 router.get(
   '/customers/search',
-  authorize('support_agent', 'ops_manager'),
+  authorize('support', 'ops_manager'),
   asyncHandler(async (req: Request, res: Response) => {
     const parsed = customerSearchSchema.safeParse(req.query);
     if (!parsed.success) {
@@ -47,7 +47,7 @@ router.get(
 // GET /api/v1/support/customers/:customerId/profile
 router.get(
   '/customers/:customerId/profile',
-  authorize('support_agent', 'ops_manager'),
+  authorize('support', 'ops_manager'),
   asyncHandler(async (req: Request, res: Response) => {
     const profile = await supportService.getCustomerProfile(req.params.customerId);
     return res.json({ success: true, data: profile });
@@ -57,7 +57,7 @@ router.get(
 // GET /api/v1/support/customers/:customerId/services
 router.get(
   '/customers/:customerId/services',
-  authorize('support_agent', 'ops_manager'),
+  authorize('support', 'ops_manager'),
   asyncHandler(async (req: Request, res: Response) => {
     const parsed = serviceFilterSchema.safeParse({
       ...req.query,
@@ -78,7 +78,7 @@ router.get(
 // POST /api/v1/support/messages
 router.post(
   '/messages',
-  authorize('support_agent', 'ops_manager', 'agent'),
+  authorize('support', 'ops_manager', 'agent'),
   asyncHandler(async (req: Request, res: Response) => {
     const parsed = sendMessageSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -93,7 +93,7 @@ router.post(
 // NOTE: Must be registered BEFORE /messages/:serviceId to avoid route shadowing
 router.get(
   '/messages/unread-count',
-  authorize('support_agent', 'agent'),
+  authorize('support', 'agent'),
   asyncHandler(async (req: Request, res: Response) => {
     const count = await supportService.getUnreadCount((req as any).user.id);
     return res.json({ success: true, data: { unreadCount: count } });
@@ -103,7 +103,7 @@ router.get(
 // GET /api/v1/support/messages/:serviceId
 router.get(
   '/messages/:serviceId',
-  authorize('support_agent', 'ops_manager', 'agent'),
+  authorize('support', 'ops_manager', 'agent'),
   asyncHandler(async (req: Request, res: Response) => {
     const messages = await supportService.getThreadMessages(
       req.params.serviceId,
@@ -116,7 +116,7 @@ router.get(
 // PATCH /api/v1/support/messages/:serviceId/resolve
 router.patch(
   '/messages/:serviceId/resolve',
-  authorize('support_agent'),
+  authorize('support'),
   asyncHandler(async (req: Request, res: Response) => {
     await supportService.markThreadResolved(req.params.serviceId);
     return res.json({ success: true });
@@ -126,7 +126,7 @@ router.patch(
 // PATCH /api/v1/support/messages/:serviceId/read
 router.patch(
   '/messages/:serviceId/read',
-  authorize('support_agent', 'agent'),
+  authorize('support', 'agent'),
   asyncHandler(async (req: Request, res: Response) => {
     await supportService.markMessagesRead(req.params.serviceId, (req as any).user.id);
     return res.json({ success: true });
@@ -140,7 +140,7 @@ router.patch(
 // GET /api/v1/support/templates?category=...
 router.get(
   '/templates',
-  authorize('support_agent', 'ops_manager'),
+  authorize('support', 'ops_manager'),
   asyncHandler(async (req: Request, res: Response) => {
     const templates = await supportService.getTemplates(req.query.category as string);
     return res.json({ success: true, data: templates });
@@ -188,7 +188,7 @@ router.delete(
 // POST /api/v1/support/templates/usage
 router.post(
   '/templates/usage',
-  authorize('support_agent'),
+  authorize('support'),
   asyncHandler(async (req: Request, res: Response) => {
     const parsed = logTemplateUsageSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -210,7 +210,7 @@ router.post(
 // POST /api/v1/support/reminders
 router.post(
   '/reminders',
-  authorize('support_agent'),
+  authorize('support'),
   asyncHandler(async (req: Request, res: Response) => {
     const parsed = createReminderSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -224,7 +224,7 @@ router.post(
 // GET /api/v1/support/reminders
 router.get(
   '/reminders',
-  authorize('support_agent'),
+  authorize('support'),
   asyncHandler(async (req: Request, res: Response) => {
     const filters = reminderFilterSchema.safeParse(req.query);
     const reminders = await supportService.getReminders(
@@ -239,7 +239,7 @@ router.get(
 // NOTE: Must be registered BEFORE /reminders/:id to avoid route shadowing
 router.get(
   '/reminders/overdue-count',
-  authorize('support_agent'),
+  authorize('support'),
   asyncHandler(async (req: Request, res: Response) => {
     const count = await supportService.getOverdueCount((req as any).user.id);
     return res.json({ success: true, data: { count } });
@@ -249,7 +249,7 @@ router.get(
 // PATCH /api/v1/support/reminders/:id
 router.patch(
   '/reminders/:id',
-  authorize('support_agent'),
+  authorize('support'),
   asyncHandler(async (req: Request, res: Response) => {
     const parsed = updateReminderSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -271,7 +271,7 @@ router.patch(
 // POST /api/v1/support/cases/:id/log-pattern
 router.post(
   '/cases/:id/log-pattern',
-  authorize('support_agent'),
+  authorize('support'),
   asyncHandler(async (req: Request, res: Response) => {
     const parsed = logPatternSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -301,7 +301,7 @@ router.get(
 // GET /api/v1/support/cases/:id/patterns
 router.get(
   '/cases/:id/patterns',
-  authorize('support_agent', 'ops_manager'),
+  authorize('support', 'ops_manager'),
   asyncHandler(async (req: Request, res: Response) => {
     const patterns = await supportService.getPatternsByService(req.params.id);
     return res.json({ success: true, data: patterns });
@@ -315,7 +315,7 @@ router.get(
 // POST /api/v1/support/agents/performance-notes
 router.post(
   '/agents/performance-notes',
-  authorize('support_agent'),
+  authorize('support'),
   asyncHandler(async (req: Request, res: Response) => {
     const parsed = addPerformanceNoteSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -329,7 +329,7 @@ router.post(
 // GET /api/v1/support/agents/:agentId/performance-notes
 router.get(
   '/agents/:agentId/performance-notes',
-  authorize('ops_manager', 'franchise_owner', 'support_agent'),
+  authorize('ops_manager', 'franchise_owner', 'support'),
   asyncHandler(async (req: Request, res: Response) => {
     // AC5: Agents cannot view their own performance notes
     if ((req as any).user?.role === 'agent') {
@@ -349,7 +349,7 @@ router.get(
 // GET /api/v1/support/agents/:agentId/performance-notes/count
 router.get(
   '/agents/:agentId/performance-notes/count',
-  authorize('support_agent', 'ops_manager'),
+  authorize('support', 'ops_manager'),
   asyncHandler(async (req: Request, res: Response) => {
     const count = await supportService.getAgentNoteCount(req.params.agentId);
     return res.json({ success: true, data: { count } });
@@ -363,7 +363,7 @@ router.get(
 // POST /api/v1/support/escalations
 router.post(
   '/escalations',
-  authorize('support_agent', 'ops_manager'),
+  authorize('support', 'ops_manager'),
   asyncHandler(async (req: Request, res: Response) => {
     const parsed = createEscalationSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -377,7 +377,7 @@ router.post(
 // GET /api/v1/support/escalations?assignedAgentId=...
 router.get(
   '/escalations',
-  authorize('support_agent', 'ops_manager'),
+  authorize('support', 'ops_manager'),
   asyncHandler(async (req: Request, res: Response) => {
     const escalations = await supportService.getEscalationsQueue(
       req.query.assignedAgentId as string,
@@ -389,7 +389,7 @@ router.get(
 // PATCH /api/v1/support/escalations/:id/first-response
 router.patch(
   '/escalations/:id/first-response',
-  authorize('support_agent'),
+  authorize('support'),
   asyncHandler(async (req: Request, res: Response) => {
     const escalation = await supportService.recordFirstResponse(
       req.params.id,
@@ -402,7 +402,7 @@ router.patch(
 // PATCH /api/v1/support/escalations/:id/resolve
 router.patch(
   '/escalations/:id/resolve',
-  authorize('support_agent', 'ops_manager'),
+  authorize('support', 'ops_manager'),
   asyncHandler(async (req: Request, res: Response) => {
     const escalation = await supportService.resolveEscalation(req.params.id);
     return res.json({ success: true, data: escalation });
@@ -434,7 +434,7 @@ router.post(
 // POST /api/v1/support/customers/messages
 router.post(
   '/customers/messages',
-  authorize('support_agent'),
+  authorize('support'),
   asyncHandler(async (req: Request, res: Response) => {
     const parsed = sendCustomerMessageSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -451,7 +451,7 @@ router.post(
 // GET /api/v1/support/services/:serviceId/communications
 router.get(
   '/services/:serviceId/communications',
-  authorize('support_agent', 'ops_manager', 'customer'),
+  authorize('support', 'ops_manager', 'customer'),
   asyncHandler(async (req: Request, res: Response) => {
     const messages = await supportService.getServiceCommunications(req.params.serviceId);
     return res.json({ success: true, data: messages });
@@ -480,7 +480,7 @@ router.post(
 // GET /api/v1/support/overview
 router.get(
   '/overview',
-  authorize('support_agent'),
+  authorize('support'),
   asyncHandler(async (req: Request, res: Response) => {
     const metrics = await supportService.getOverviewMetrics((req as any).user.id);
     return res.json({ success: true, data: metrics });

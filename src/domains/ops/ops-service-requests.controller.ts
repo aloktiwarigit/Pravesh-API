@@ -74,6 +74,7 @@ export function createOpsServiceRequestsController(prisma: PrismaClient): Router
           propertyType: r.serviceInstance?.propertyType ?? null,
           propertyLat: r.serviceInstance?.propertyLat ?? null,
           propertyLng: r.serviceInstance?.propertyLng ?? null,
+          serviceFeePaise: r.serviceFeePaise,
           createdAt: r.createdAt,
           updatedAt: r.updatedAt,
         }));

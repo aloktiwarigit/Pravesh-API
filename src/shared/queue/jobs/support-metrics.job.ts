@@ -19,7 +19,7 @@ export async function handleSupportMetricsComputation() {
   periodStart.setDate(periodStart.getDate() - 30);
 
   // Get all active support agents
-  // In production: query from users table where role = SUPPORT_AGENT
+  // In production: query from users table where role = SUPPORT
   const agentIds = await prisma.supportEscalation.findMany({
     select: { assignedAgentId: true },
     distinct: ['assignedAgentId'],

@@ -16,36 +16,36 @@ const lawyerController = new LawyerController(lawyerService);
 // ============================================================
 
 // POST /api/v1/lawyers/register — Lawyer submits registration (authenticated)
-router.post('/register', authorize('lawyer', 'ops'), lawyerController.register);
+router.post('/register', authorize('lawyer', 'ops_manager'), lawyerController.register);
 
 // POST /api/v1/lawyers/verify — Ops approves/rejects lawyer (ops role)
-router.post('/verify', authorize('ops'), lawyerController.verify);
+router.post('/verify', authorize('ops_manager'), lawyerController.verify);
 
 // GET /api/v1/lawyers/me — Lawyer views own profile (lawyer role)
 router.get('/me', authorize('lawyer'), lawyerController.getMyProfile);
 
 // GET /api/v1/lawyers/pending-verifications — Ops views pending lawyers (ops role)
-router.get('/pending-verifications', authorize('ops'), lawyerController.getPendingVerifications);
+router.get('/pending-verifications', authorize('ops_manager'), lawyerController.getPendingVerifications);
 
 // ============================================================
 // Story 12-2: Expertise Tagging
 // ============================================================
 
 // POST /api/v1/lawyers/expertise — Ops assigns expertise tags (ops role)
-router.post('/expertise', authorize('ops'), lawyerController.assignExpertise);
+router.post('/expertise', authorize('ops_manager'), lawyerController.assignExpertise);
 
 // POST /api/v1/lawyers/expertise/request — Lawyer requests additional tag (lawyer role)
 router.post('/expertise/request', authorize('lawyer'), lawyerController.requestExpertise);
 
 // POST /api/v1/lawyers/expertise/review — Ops reviews expertise request (ops role)
-router.post('/expertise/review', authorize('ops'), lawyerController.reviewExpertiseRequest);
+router.post('/expertise/review', authorize('ops_manager'), lawyerController.reviewExpertiseRequest);
 
 // ============================================================
 // Story 12-3: Case Routing
 // ============================================================
 
 // GET /api/v1/lawyers/suggestions?expertiseTag=TITLE_OPINIONS — Ops gets matched lawyers (ops role)
-router.get('/suggestions', authorize('ops'), lawyerController.getSuggestedLawyers);
+router.get('/suggestions', authorize('ops_manager'), lawyerController.getSuggestedLawyers);
 
 // ============================================================
 // Story 12-8: Payment & Bank Account
@@ -68,7 +68,7 @@ router.get('/payouts', authorize('lawyer'), lawyerController.getPayoutHistory);
 router.get('/my-ratings', authorize('lawyer'), lawyerController.getMyRatingSummary);
 
 // GET /api/v1/lawyers/:lawyerId/ratings — Ops views detailed ratings (ops role)
-router.get('/:lawyerId/ratings', authorize('ops'), lawyerController.getLawyerRatingsOps);
+router.get('/:lawyerId/ratings', authorize('ops_manager'), lawyerController.getLawyerRatingsOps);
 
 // ============================================================
 // Story 12-10: Earnings Dashboard
@@ -85,10 +85,10 @@ router.get('/case-history', authorize('lawyer'), lawyerController.getCaseHistory
 // ============================================================
 
 // PUT /api/v1/lawyers/:lawyerId/commission — Ops adjusts commission (ops role)
-router.put('/:lawyerId/commission', authorize('ops'), lawyerController.updateCommissionRate);
+router.put('/:lawyerId/commission', authorize('ops_manager'), lawyerController.updateCommissionRate);
 
 // POST /api/v1/lawyers/:lawyerId/deactivate — Ops deactivates lawyer (ops role)
-router.post('/:lawyerId/deactivate', authorize('ops'), lawyerController.deactivateLawyer);
+router.post('/:lawyerId/deactivate', authorize('ops_manager'), lawyerController.deactivateLawyer);
 
 // ============================================================
 // Story 12-12: DND Toggle

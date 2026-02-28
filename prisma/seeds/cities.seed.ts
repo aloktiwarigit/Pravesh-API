@@ -8,6 +8,15 @@ import { PrismaClient } from '@prisma/client';
 
 const SYSTEM_USER_ID = 'system-seed';
 
+/**
+ * Deterministic city IDs for test environments.
+ * Journey tests (src/__tests__/journeys/) reference these UUIDs directly,
+ * so they MUST stay in sync with LUCKNOW_CITY_ID in journey-data.ts.
+ */
+const DETERMINISTIC_CITY_IDS: Record<string, string> = {
+  Lucknow: 'c842d713-59f0-44c3-adc9-8ff7809ac5c4',
+};
+
 interface CitySeed {
   cityName: string;
   state: string;
@@ -131,6 +140,7 @@ export async function seedCities(prisma: PrismaClient): Promise<Record<string, s
         configData: city.configData as any,
       },
       create: {
+        ...(DETERMINISTIC_CITY_IDS[city.cityName] ? { id: DETERMINISTIC_CITY_IDS[city.cityName] } : {}),
         cityName: city.cityName,
         state: city.state,
         activeStatus: city.activeStatus,

@@ -352,8 +352,8 @@ export function createApiRouter(services: ServiceContainer, prismaInstance?: Pri
   router.use('/support', supportRouter);
 
   // Story 4.1X: Court Hearing Tracking
+  // Mounted only at /hearings — /legal-cases is reserved for the lawyer legal case routes (Epic 12)
   if (prismaInstance) {
-    router.use('/legal-cases', createCourtTrackingController(prismaInstance));
     router.use('/hearings', createCourtTrackingController(prismaInstance));
   }
 
