@@ -1,14 +1,58 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { RoleRequestService } from './role-request.service';
 import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
 
-const createRequestSchema = z.object({
-  requestedRole: z.string().min(1),
-  notes: z.string().max(1000).optional(),
+// Role-specific metadata schemas
+const agentMetadataSchema = z.object({
+  cityId: z.string().uuid(),
 });
+
+const dealerMetadataSchema = z.object({
+  cityId: z.string().uuid(),
+  businessName: z.string().min(2).max(200),
+});
+
+const lawyerMetadataSchema = z.object({
+  cityId: z.string().uuid(),
+  barCouncilNumber: z.string().min(5).max(30),
+  stateBarCouncil: z.string().min(2).max(50),
+  admissionYear: z.number().int().min(1950).max(new Date().getFullYear()),
+  practicingCertUrl: z.string().url(),
+});
+
+const builderMetadataSchema = z.object({
+  cityId: z.string().uuid(),
+  companyName: z.string().min(2).max(200),
+  reraNumber: z.string().min(8).max(30),
+  gstNumber: z.string().regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/, 'Invalid GST number format'),
+  contactPhone: z.string().regex(/^\+91\d{10}$/, 'Phone must be +91 followed by 10 digits'),
+});
+
+const createRequestSchema = z.discriminatedUnion('requestedRole', [
+  z.object({
+    requestedRole: z.literal('agent'),
+    notes: z.string().max(1000).optional(),
+    roleMetadata: agentMetadataSchema,
+  }),
+  z.object({
+    requestedRole: z.literal('dealer'),
+    notes: z.string().max(1000).optional(),
+    roleMetadata: dealerMetadataSchema,
+  }),
+  z.object({
+    requestedRole: z.literal('lawyer'),
+    notes: z.string().max(1000).optional(),
+    roleMetadata: lawyerMetadataSchema,
+  }),
+  z.object({
+    requestedRole: z.literal('builder'),
+    notes: z.string().max(1000).optional(),
+    roleMetadata: builderMetadataSchema,
+  }),
+]);
 
 const reviewRequestSchema = z.object({
   approved: z.boolean(),
@@ -19,21 +63,8 @@ export function createRoleRequestController(prisma: PrismaClient): Router {
   const router = Router();
   const service = new RoleRequestService(prisma);
 
-  function handleError(res: Response, error: any) {
-    if (error.name === 'ZodError') {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'Validation failed', details: error.errors },
-      });
-    }
-    const statusCode = error.statusCode || 500;
-    const code = error.code || 'SYSTEM_ERROR';
-    const message = error.message || 'An unexpected error occurred';
-    return res.status(statusCode).json({ success: false, error: { code, message } });
-  }
-
   // POST /api/v1/auth/role-requests — any authenticated user requests a role
-  router.post('/', authenticate, async (req: Request, res: Response) => {
+  router.post('/', authenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = createRequestSchema.parse(req.body);
       const userId = req.user!.id;
@@ -54,15 +85,16 @@ export function createRoleRequestController(prisma: PrismaClient): Router {
         user.id,
         input.requestedRole,
         input.notes,
+        input.roleMetadata,
       );
       res.status(201).json({ success: true, data: request });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // GET /api/v1/auth/role-requests/mine — user sees their own requests
-  router.get('/mine', authenticate, async (req: Request, res: Response) => {
+  router.get('/mine', authenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.user!.id;
 
@@ -80,7 +112,7 @@ export function createRoleRequestController(prisma: PrismaClient): Router {
       const requests = await service.getMyRequests(user.id);
       res.json({ success: true, data: requests });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -89,7 +121,7 @@ export function createRoleRequestController(prisma: PrismaClient): Router {
     '/',
     authenticate,
     authorize('super_admin', 'ops', 'franchise_owner'),
-    async (req: Request, res: Response) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = req.user!.id;
 
@@ -107,7 +139,7 @@ export function createRoleRequestController(prisma: PrismaClient): Router {
         const requests = await service.listPendingRequests(user.id);
         res.json({ success: true, data: requests });
       } catch (error) {
-        handleError(res, error);
+        next(error);
       }
     },
   );
@@ -117,7 +149,7 @@ export function createRoleRequestController(prisma: PrismaClient): Router {
     '/:id',
     authenticate,
     authorize('super_admin', 'ops', 'franchise_owner'),
-    async (req: Request, res: Response) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
         const input = reviewRequestSchema.parse(req.body);
         const userId = req.user!.id;
@@ -141,7 +173,7 @@ export function createRoleRequestController(prisma: PrismaClient): Router {
         );
         res.json({ success: true, data: result });
       } catch (error) {
-        handleError(res, error);
+        next(error);
       }
     },
   );

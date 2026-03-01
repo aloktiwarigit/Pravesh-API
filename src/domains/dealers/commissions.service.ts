@@ -81,11 +81,45 @@ export class CommissionService {
 
       // AC3: Calculate on service fees only (not government fees)
       const serviceFeePaise = BigInt(sr.service_fee_paise || 0);
-      const commissionRate = TIER_RATES[dealer.currentTier] ?? TIER_RATES.BRONZE;
 
-      // Integer arithmetic only: commission = serviceFeePaise * rate / 10000
-      // rate is basis points x 100 (500 = 5.00%), so /10000 gives correct result
-      const commissionAmountPaise = (serviceFeePaise * BigInt(commissionRate)) / 10000n;
+      // Check for admin-set fixed commission config before using tier rates.
+      // Look up serviceDefinitionId via the service instance.
+      let commissionAmountPaise: bigint;
+      let commissionRate: number;
+
+      const serviceInstance = await tx.$queryRawUnsafe<any[]>(
+        `SELECT si.service_definition_id
+         FROM service_requests sr
+         JOIN service_instances si ON si.id = sr.service_instance_id
+         WHERE sr.id = $1`,
+        serviceRequestId,
+      ).catch(() => []);
+
+      const serviceDefinitionId = serviceInstance?.[0]?.service_definition_id;
+
+      // Try to find admin-configured fixed commission for dealer role + service
+      const fixedConfig = serviceDefinitionId
+        ? await tx.commissionConfig.findUnique({
+            where: {
+              role_serviceDefinitionId: {
+                role: 'dealer',
+                serviceDefinitionId,
+              },
+            },
+          })
+        : null;
+
+      if (fixedConfig?.isActive && fixedConfig.commissionAmountPaise > 0n) {
+        // Use admin-set fixed amount
+        commissionAmountPaise = fixedConfig.commissionAmountPaise;
+        commissionRate = 0; // Fixed amount, not percentage-based
+      } else {
+        // Fallback to tier-based percentage calculation
+        commissionRate = TIER_RATES[dealer.currentTier] ?? TIER_RATES.BRONZE;
+        // Integer arithmetic only: commission = serviceFeePaise * rate / 10000
+        // rate is basis points x 100 (500 = 5.00%), so /10000 gives correct result
+        commissionAmountPaise = (serviceFeePaise * BigInt(commissionRate)) / 10000n;
+      }
 
       // AC4: Create commission record — catch P2002 as idempotent no-op
       try {
@@ -319,5 +353,37 @@ export class CommissionService {
       },
       orderBy: { earnedDate: 'desc' },
     });
+  }
+
+  /**
+   * Ops: Get all pending (APPROVED) commissions across all dealers.
+   * Used by the ops payout dashboard to see what's awaiting payout.
+   */
+  async getAllPendingCommissions(cityId?: string) {
+    const where: any = { status: CommissionStatus.APPROVED };
+    if (cityId) where.cityId = cityId;
+
+    const commissions = await this.prisma.dealerCommission.findMany({
+      where,
+      orderBy: { earnedDate: 'desc' },
+      take: 100,
+      include: {
+        dealer: {
+          select: {
+            id: true,
+            currentTier: true,
+            kyc: { select: { fullName: true } },
+          },
+        },
+      },
+    });
+
+    return commissions.map((c) => ({
+      id: c.id,
+      dealerName: c.dealer?.kyc?.fullName ?? 'Unknown',
+      amountPaise: c.commissionAmountPaise.toString(),
+      tier: c.dealer?.currentTier ?? 'BRONZE',
+      earnedDate: c.earnedDate.toISOString(),
+    }));
   }
 }

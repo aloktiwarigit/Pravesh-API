@@ -508,7 +508,6 @@ model DealerBankAccount {
   accountNumberEncrypted   String      @map("account_number_encrypted")
   accountType              AccountType @map("account_type")
   isVerified               Boolean     @default(false) @map("is_verified")
-  verified                 Boolean     @default(false)
   verificationCode         String?     @map("verification_code")
   isPrimary                Boolean     @default(false) @map("is_primary")
   razorpayContactId        String?     @map("razorpay_contact_id")
@@ -1047,7 +1046,7 @@ model NriDocumentSubmission {
 model Lawyer {
   id                    String          @id @default(uuid())
   userId                String          @unique @map("user_id")
-  barCouncilNumber      String          @map("bar_council_number")
+  barCouncilNumber      String          @unique @map("bar_council_number")
   stateBarCouncil       String          @map("state_bar_council")
   admissionYear         Int             @map("admission_year")
   practicingCertUrl     String          @map("practicing_cert_url")
@@ -1376,7 +1375,7 @@ model Builder {
   userId        String        @unique @map("user_id")
   companyName   String        @map("company_name")
   reraNumber    String        @unique @map("rera_number")
-  gstNumber     String        @map("gst_number")
+  gstNumber     String        @unique @map("gst_number")
   contactEmail  String?       @map("contact_email")
   contactPhone  String        @map("contact_phone")
   status        BuilderStatus @default(PENDING_VERIFICATION)
@@ -2366,11 +2365,31 @@ model ServiceDefinition {
   city              City               @relation(fields: [cityId], references: [id])
   serviceInstances  ServiceInstance[]
   packageItems      PackageItem[]
+  commissionConfigs CommissionConfig[]
 
   @@index([category])
   @@index([cityId])
   @@index([isActive])
   @@map("service_definitions")
+}
+
+// Commission Config — admin-set fixed-price commissions per service per role
+model CommissionConfig {
+  id                    String   @id @default(uuid())
+  role                  String   // 'agent' or 'dealer'
+  serviceDefinitionId   String   @map("service_definition_id")
+  commissionAmountPaise BigInt   @map("commission_amount_paise") // fixed amount in paise
+  isActive              Boolean  @default(true) @map("is_active")
+  updatedBy             String?  @map("updated_by")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  serviceDefinition     ServiceDefinition @relation(fields: [serviceDefinitionId], references: [id])
+
+  @@unique([role, serviceDefinitionId])
+  @@index([role])
+  @@index([isActive])
+  @@map("commission_configs")
 }
 
 // Story 5-1: Packages — bundled services with discounts
@@ -2898,6 +2917,7 @@ model RoleRequest {
   requestedRole String            @map("requested_role")
   status        RoleRequestStatus @default(PENDING)
   notes         String?           @db.Text
+  roleMetadata  Json?             @map("role_metadata") @db.JsonB
   reviewedBy    String?           @map("reviewed_by")
   reviewedAt    DateTime?         @map("reviewed_at")
   reviewNotes   String?           @map("review_notes") @db.Text

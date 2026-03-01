@@ -188,7 +188,7 @@ describe('Auth Validation Schemas', () => {
 
     test('accepts all valid role types', () => {
       const validRoles = [
-        'customer', 'agent', 'dealer', 'ops', 'builder',
+        'customer', 'agent', 'dealer', 'ops', 'ops_manager', 'builder',
         'lawyer', 'franchise_owner', 'super_admin', 'support',
       ];
 

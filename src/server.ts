@@ -22,6 +22,7 @@ import { PrismaClient } from '@prisma/client';
 import { prisma } from './shared/prisma/client';
 import { createApiRouter, createServiceContainer } from './routes';
 import { registerEpic13Routes, registerEpic13Jobs } from './domains/epic13-routes';
+import { registerCommissionAndPayoutJobs } from './shared/queue/jobs/register-commission-jobs';
 import { errorHandler } from './middleware/error-handler';
 import { authenticate } from './middleware/authenticate';
 import { requestId } from './middleware/request-id';
@@ -95,6 +96,12 @@ app.use(pinoHttp({
   customErrorMessage(req: IncomingMessage, res: ServerResponse) {
     return `${req.method} ${req.url} ${res.statusCode}`;
   },
+  // Prevent logging request body (may contain PAN, bank account, OTP)
+  serializers: {
+    req(req: any) {
+      return { id: req.id, method: req.method, url: req.url };
+    },
+  },
 }));
 
 // ============================================================
@@ -106,7 +113,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(compression());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ============================================================
@@ -164,11 +171,13 @@ app.use((req, res, next) => {
 });
 
 // ============================================================
-// Metrics Endpoint (JSON)
+// Metrics Endpoint (JSON) — protected, non-production only
 // ============================================================
-app.get('/metrics', (_req, res) => {
-  res.json({ success: true, data: metrics.getSnapshot() });
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/metrics', (_req, res) => {
+    res.json({ success: true, data: metrics.getSnapshot() });
+  });
+}
 
 // ============================================================
 // Health Checks
@@ -207,6 +216,7 @@ app.get('/health/ready', async (_req, res) => {
 });
 
 // Full health check — all subsystems
+// In production, only expose aggregate status (no infrastructure details)
 app.get('/health', async (_req, res) => {
   const checks: Record<string, { status: string; message?: string; durationMs: number }> = {};
 
@@ -227,16 +237,24 @@ app.get('/health', async (_req, res) => {
 
   const allHealthy = Object.values(checks).every((c) => c.status === 'healthy');
 
-  res.status(allHealthy ? 200 : 503).json({
-    success: allHealthy,
-    data: {
-      status: allHealthy ? 'healthy' : 'unhealthy',
-      timestamp: new Date().toISOString(),
-      version: process.env.npm_package_version || '1.0.0',
-      uptime: process.uptime(),
-      checks,
-    },
-  });
+  if (process.env.NODE_ENV === 'production') {
+    // Production: expose only aggregate status — no version, uptime, or subsystem details
+    res.status(allHealthy ? 200 : 503).json({
+      success: allHealthy,
+      data: { status: allHealthy ? 'healthy' : 'unhealthy' },
+    });
+  } else {
+    res.status(allHealthy ? 200 : 503).json({
+      success: allHealthy,
+      data: {
+        status: allHealthy ? 'healthy' : 'unhealthy',
+        timestamp: new Date().toISOString(),
+        version: process.env.npm_package_version || '1.0.0',
+        uptime: process.uptime(),
+        checks,
+      },
+    });
+  }
 });
 
 // ============================================================
@@ -342,6 +360,7 @@ const bossReadyPromise = boss.start().then(async () => {
   await boss.createQueue('notification.send');
   await boss.createQueue('cash.receipt-recorded');
   await registerEpic13Jobs(boss, prisma as unknown as PrismaClient);
+  await registerCommissionAndPayoutJobs(boss, prisma as unknown as PrismaClient);
   logger.info('PgBoss background jobs now active');
 }).catch((err: unknown) => {
   logger.error({ err }, 'Failed to start PgBoss — background jobs will not work');
@@ -361,11 +380,16 @@ async function gracefulShutdown(signal: string) {
   forceExitTimeout.unref();
 
   try {
-    // Close HTTP server (stop accepting new connections)
+    // Close HTTP server (stop accepting new connections, drain in-flight)
     if (server) {
+      // Stop accepting new connections
       await new Promise<void>((resolve, reject) => {
         server!.close((err) => (err ? reject(err) : resolve()));
       });
+      // Terminate idle keep-alive connections (Node 18.2+)
+      if (typeof server.closeAllConnections === 'function') {
+        server.closeAllConnections();
+      }
       logger.info('HTTP server closed');
     }
 

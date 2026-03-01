@@ -14,6 +14,7 @@ const VALID_ROLES = [
   'agent',
   'dealer',
   'ops',
+  'ops_manager',
   'builder',
   'lawyer',
   'franchise_owner',
@@ -21,7 +22,7 @@ const VALID_ROLES = [
   'support',
 ];
 
-const ADMIN_ROLES = ['super_admin', 'ops'];
+const ADMIN_ROLES = ['super_admin', 'ops', 'ops_manager'];
 
 export class AuthService {
   constructor(private readonly prisma: PrismaClient) {}

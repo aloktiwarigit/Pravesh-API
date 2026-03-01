@@ -1,4 +1,4 @@
-import { PrismaClient, RoleRequestStatus, UserStatus } from '@prisma/client';
+import { Prisma, PrismaClient, RoleRequestStatus, UserStatus } from '@prisma/client';
 import admin from 'firebase-admin';
 import { BusinessError } from '../../shared/errors/business-error';
 import { logger } from '../../shared/utils/logger';
@@ -9,7 +9,12 @@ const ADMIN_ROLES = ['super_admin', 'ops', 'franchise_owner'];
 export class RoleRequestService {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async createRequest(userId: string, requestedRole: string, notes?: string) {
+  async createRequest(
+    userId: string,
+    requestedRole: string,
+    notes?: string,
+    roleMetadata?: Record<string, unknown>,
+  ) {
     if (!REQUESTABLE_ROLES.includes(requestedRole)) {
       throw new BusinessError(
         'INVALID_ROLE',
@@ -50,11 +55,24 @@ export class RoleRequestService {
       );
     }
 
+    // Validate that cityId exists if provided in metadata
+    if (roleMetadata?.cityId) {
+      const city = await this.prisma.city.findUnique({
+        where: { id: roleMetadata.cityId as string },
+      });
+      if (!city) {
+        throw new BusinessError('INVALID_CITY', 'City not found', 400);
+      }
+    }
+
     return this.prisma.roleRequest.create({
       data: {
         userId,
         requestedRole,
         notes,
+        roleMetadata: roleMetadata
+          ? (roleMetadata as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       },
     });
   }
@@ -135,7 +153,7 @@ export class RoleRequestService {
       },
     });
 
-    // If approved, add the role to the user
+    // If approved, add the role to the user and create entity record
     if (approved) {
       const targetUser = await this.prisma.user.findUnique({
         where: { id: request.userId },
@@ -143,20 +161,36 @@ export class RoleRequestService {
 
       if (targetUser && !targetUser.roles.includes(request.requestedRole)) {
         const updatedRoles = [...targetUser.roles, request.requestedRole];
+        const metadata = (request.roleMetadata as Record<string, unknown>) ?? {};
+
+        // Update user roles and cityId if not already set
+        const userUpdate: Record<string, unknown> = {
+          roles: updatedRoles,
+          status: UserStatus.ACTIVE,
+        };
+        if (!targetUser.cityId && metadata.cityId) {
+          userUpdate.cityId = metadata.cityId;
+        }
 
         await this.prisma.user.update({
           where: { id: request.userId },
-          data: {
-            roles: updatedRoles,
-            status: UserStatus.ACTIVE,
-          },
+          data: userUpdate,
         });
+
+        // Create the role-specific entity record
+        await this.createEntityRecord(
+          request.requestedRole,
+          request.userId,
+          targetUser,
+          metadata,
+        );
 
         // Sync Firebase custom claims
         try {
+          const claimsCityId = (targetUser.cityId ?? metadata.cityId) as string | undefined;
           await admin.auth().setCustomUserClaims(targetUser.firebaseUid, {
             roles: updatedRoles,
-            cityId: targetUser.cityId,
+            cityId: claimsCityId,
             primaryRole: targetUser.primaryRole,
           });
         } catch (claimsError) {
@@ -166,5 +200,74 @@ export class RoleRequestService {
     }
 
     return updatedRequest;
+  }
+
+  private async createEntityRecord(
+    role: string,
+    userId: string,
+    user: { displayName: string | null; phone: string | null },
+    metadata: Record<string, unknown>,
+  ) {
+    try {
+      switch (role) {
+        case 'agent':
+          await this.prisma.agent.create({
+            data: {
+              userId,
+              cityId: metadata.cityId as string,
+              name: user.displayName ?? '',
+              phone: user.phone ?? '',
+            },
+          });
+          break;
+
+        case 'dealer':
+          await this.prisma.dealer.create({
+            data: {
+              userId,
+              cityId: metadata.cityId as string,
+              businessName: metadata.businessName as string,
+              dealerStatus: 'PENDING_KYC',
+            },
+          });
+          break;
+
+        case 'lawyer':
+          await this.prisma.lawyer.create({
+            data: {
+              userId,
+              cityId: metadata.cityId as string,
+              barCouncilNumber: metadata.barCouncilNumber as string,
+              stateBarCouncil: metadata.stateBarCouncil as string,
+              admissionYear: metadata.admissionYear as number,
+              practicingCertUrl: metadata.practicingCertUrl as string,
+              lawyerStatus: 'PENDING_VERIFICATION',
+            },
+          });
+          break;
+
+        case 'builder':
+          await this.prisma.builder.create({
+            data: {
+              userId,
+              cityId: metadata.cityId as string,
+              companyName: metadata.companyName as string,
+              reraNumber: metadata.reraNumber as string,
+              gstNumber: metadata.gstNumber as string,
+              contactPhone: metadata.contactPhone as string,
+              status: 'PENDING_VERIFICATION',
+            },
+          });
+          break;
+      }
+      logger.info({ role, userId }, 'Entity record created on role approval');
+    } catch (err) {
+      // P2002 = unique constraint violation — entity already exists
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        logger.warn({ role, userId }, 'Entity record already exists, skipping creation');
+        return;
+      }
+      throw err;
+    }
   }
 }

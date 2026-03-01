@@ -34,9 +34,13 @@ export function auditQueryRoutes(prisma: PrismaClient): Router {
 
       // CSV export (AC8)
       if (query.format === 'csv') {
+        // Sanitize CSV cells to prevent spreadsheet formula injection (=, +, -, @)
+        const sanitize = (val: string): string => /^[=+\-@]/.test(val) ? `'${val}` : val;
         const csvHeader = 'id,user_id,user_role,action,resource_type,resource_id,service_instance_id,ip_address,created_at\n';
         const csvRows = logs.map((l) =>
-          `${l.id},${l.userId},${l.userRole},${l.action},${l.resourceType},${l.resourceId},${l.serviceInstanceId || ''},${l.ipAddress || ''},${l.createdAt.toISOString()}`
+          [l.id, l.userId, l.userRole, l.action, l.resourceType, l.resourceId, l.serviceInstanceId || '', l.ipAddress || '', l.createdAt.toISOString()]
+            .map(v => sanitize(String(v)))
+            .join(',')
         ).join('\n');
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', 'attachment; filename=audit-log.csv');

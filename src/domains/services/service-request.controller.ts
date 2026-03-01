@@ -20,6 +20,15 @@ const submitRequestSchema = z.object({
   ownershipStatus: z.string().min(1),
   packageId: z.string().optional(),
   estimatedValuePaise: z.number().int().positive().optional(),
+  ownerName: z.string().min(1).max(100),
+  aadhaarLast4: z.string().regex(/^\d{4}$/).optional(),
+  surveyKhataNumber: z.string().max(50).optional(),
+  sellerName: z.string().max(100).optional(),
+  coOwners: z.array(z.object({
+    name: z.string().min(1).max(100),
+    phone: z.string().regex(/^\d{10}$/),
+    relationship: z.enum(['co_owner', 'co_heir', 'spouse', 'poa_holder']),
+  })).max(5).optional(),
 });
 
 const editRequestSchema = z.object({
@@ -329,6 +338,7 @@ export function createServiceRequestController(prisma: PrismaClient): Router {
             propertyType: existingRequest.serviceInstance?.propertyType || 'residential',
             propertyLocation: existingRequest.serviceInstance?.propertyAddress || '',
             ownershipStatus: 'self',
+            ownerName: existingRequest.customerName || 'N/A',
           },
           user,
         );

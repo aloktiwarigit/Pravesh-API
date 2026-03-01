@@ -4,7 +4,7 @@
 // Request handling, Zod validation, standard { success, data } response
 // ============================================================
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { UserService } from './user.service';
 import { updateProfileSchema, patchProfileSchema, userSearchSchema } from './user.validation';
@@ -18,25 +18,11 @@ export function createUserController(prisma: PrismaClient): Router {
   // All routes require authentication
   router.use(authenticate);
 
-  // Helper: standard error handler
-  function handleError(res: Response, error: any) {
-    if (error.name === 'ZodError') {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'Validation failed', details: error.errors },
-      });
-    }
-    const statusCode = error.statusCode || 500;
-    const code = error.code || 'SYSTEM_ERROR';
-    const message = error.message || 'An unexpected error occurred';
-    return res.status(statusCode).json({ success: false, error: { code, message } });
-  }
-
   // ==========================================================
   // GET /me — Get current user's profile
   // ==========================================================
 
-  router.get('/me', async (req: Request, res: Response) => {
+  router.get('/me', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const firebaseUid = (req as any).user?.id;
       const user = await userService.getProfile(firebaseUid);
@@ -46,7 +32,7 @@ export function createUserController(prisma: PrismaClient): Router {
         preferredLanguage: user.languagePref,
       }});
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -54,7 +40,7 @@ export function createUserController(prisma: PrismaClient): Router {
   // PUT /me — Update current user's profile
   // ==========================================================
 
-  router.put('/me', async (req: Request, res: Response) => {
+  router.put('/me', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const firebaseUid = (req as any).user?.id;
       const input = updateProfileSchema.parse(req.body);
@@ -65,7 +51,7 @@ export function createUserController(prisma: PrismaClient): Router {
         preferredLanguage: user.languagePref,
       }});
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -73,7 +59,7 @@ export function createUserController(prisma: PrismaClient): Router {
   // PATCH /me — Partial profile update (Flutter sends PATCH)
   // ==========================================================
 
-  router.patch('/me', async (req: Request, res: Response) => {
+  router.patch('/me', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const firebaseUid = (req as any).user?.id;
       const input = patchProfileSchema.parse(req.body);
@@ -92,7 +78,7 @@ export function createUserController(prisma: PrismaClient): Router {
         preferredLanguage: user.languagePref,
       }});
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -103,13 +89,13 @@ export function createUserController(prisma: PrismaClient): Router {
   router.get(
     '/search',
     authorize('super_admin', 'ops', 'franchise_owner'),
-    async (req: Request, res: Response) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
         const filters = userSearchSchema.parse(req.query);
         const result = await userService.searchUsers(filters);
         res.json({ success: true, data: result });
       } catch (error) {
-        handleError(res, error);
+        next(error);
       }
     },
   );
@@ -121,12 +107,12 @@ export function createUserController(prisma: PrismaClient): Router {
   router.get(
     '/:userId',
     authorize('super_admin', 'ops'),
-    async (req: Request, res: Response) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
         const user = await userService.getUserById(req.params.userId);
         res.json({ success: true, data: user });
       } catch (error) {
-        handleError(res, error);
+        next(error);
       }
     },
   );

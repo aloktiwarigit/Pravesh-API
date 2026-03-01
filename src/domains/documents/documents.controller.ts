@@ -14,10 +14,18 @@ export function documentsRoutes(service: DocumentsService): Router {
   router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const body = createDocumentSchema.parse(req.body);
+      const user = (req as any).user!;
+
+      // Ownership check: user must have access to this service instance
+      const hasAccess = await service.verifyAccess(user.id, user.role, body.serviceInstanceId);
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, error: { code: 'AUTH_FORBIDDEN', message: 'You do not have access to this service instance' } });
+      }
+
       const document = await service.createDocument({
         ...body,
-        uploadedByUserId: (req as any).user!.id,
-        cityId: (req as any).user!.cityId,
+        uploadedByUserId: user.id,
+        cityId: user.cityId,
       });
 
       // Audit log
@@ -49,6 +57,13 @@ export function documentsRoutes(service: DocumentsService): Router {
   router.get('/checklist', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { service_instance_id } = queryDocumentsSchema.parse(req.query);
+      const user = (req as any).user!;
+
+      const hasAccess = await service.verifyAccess(user.id, user.role, service_instance_id);
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, error: { code: 'AUTH_FORBIDDEN', message: 'You do not have access to this service instance' } });
+      }
+
       const checklist = await service.getDocumentChecklist(service_instance_id);
       res.json({ success: true, data: checklist });
     } catch (error) {
@@ -133,6 +148,13 @@ export function documentsRoutes(service: DocumentsService): Router {
   router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { service_instance_id } = queryDocumentsSchema.parse(req.query);
+      const user = (req as any).user!;
+
+      const hasAccess = await service.verifyAccess(user.id, user.role, service_instance_id);
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, error: { code: 'AUTH_FORBIDDEN', message: 'You do not have access to this service instance' } });
+      }
+
       const documents = await service.getDocumentsByServiceInstance(service_instance_id);
       res.json({ success: true, data: documents });
     } catch (error) {
@@ -148,6 +170,12 @@ export function documentsRoutes(service: DocumentsService): Router {
       const document = await service.getDocumentById(req.params.id);
       if (!document) {
         return res.status(404).json({ success: false, error: { code: 'DOCUMENT_NOT_FOUND', message: 'Document not found' } });
+      }
+
+      const user = (req as any).user!;
+      const hasAccess = await service.verifyAccess(user.id, user.role, document.serviceInstanceId);
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, error: { code: 'AUTH_FORBIDDEN', message: 'You do not have access to this document' } });
       }
 
       // Audit log for view (Story 6.10, 6.13)
@@ -240,6 +268,17 @@ export function documentsRoutes(service: DocumentsService): Router {
   // ================================================================
   router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const doc = await service.getDocumentById(req.params.id);
+      if (!doc) {
+        return res.status(404).json({ success: false, error: { code: 'DOCUMENT_NOT_FOUND', message: 'Document not found' } });
+      }
+
+      const user = (req as any).user!;
+      const hasAccess = await service.verifyAccess(user.id, user.role, doc.serviceInstanceId);
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, error: { code: 'AUTH_FORBIDDEN', message: 'You do not have access to this document' } });
+      }
+
       await service.deleteDocument(req.params.id);
 
       await auditLog({

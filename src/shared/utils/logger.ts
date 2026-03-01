@@ -15,7 +15,15 @@ export const logger: pino.Logger = pino({
   timestamp: pino.stdTimeFunctions.isoTime,
   base: { service: 'pla-api' },
   redact: {
-    paths: ['req.headers.authorization', 'req.headers.cookie'],
+    paths: [
+      'req.headers.authorization',
+      'req.headers.cookie',
+      'req.headers["x-test-auth-secret"]',
+      'req.body.pan',
+      'req.body.panNumber',
+      'req.body.accountNumber',
+      'req.body.aadhaarNumber',
+    ],
     remove: true,
   },
 });

@@ -64,7 +64,25 @@ function loadConfig() {
     return envSchema.parse({ ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'postgresql://localhost:5432/test' });
   }
 
-  return result.data;
+  const env = result.data;
+
+  // Production-critical env var guards: fail fast instead of runtime errors
+  if (env.NODE_ENV === 'production') {
+    const missing: string[] = [];
+    if (!env.FIREBASE_PROJECT_ID) missing.push('FIREBASE_PROJECT_ID');
+    if (!env.FIREBASE_CLIENT_EMAIL) missing.push('FIREBASE_CLIENT_EMAIL');
+    if (!env.FIREBASE_PRIVATE_KEY) missing.push('FIREBASE_PRIVATE_KEY');
+    if (!env.ENCRYPTION_KEY) missing.push('ENCRYPTION_KEY');
+    if (!env.RAZORPAY_KEY_ID) missing.push('RAZORPAY_KEY_ID');
+    if (!env.RAZORPAY_KEY_SECRET) missing.push('RAZORPAY_KEY_SECRET');
+    if (!env.RAZORPAY_WEBHOOK_SECRET) missing.push('RAZORPAY_WEBHOOK_SECRET');
+    if (missing.length > 0) {
+      logger.fatal({ missing }, 'Production requires these env vars — exiting');
+      process.exit(1);
+    }
+  }
+
+  return env;
 }
 
 const env = loadConfig();

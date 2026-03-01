@@ -223,6 +223,13 @@ export class AgentTaskService {
         serviceRequestId: task.serviceInstanceId,
         newStatus: payload.newStatus,
       } as Record<string, unknown>);
+
+      // Trigger commission calculation when service is completed
+      if (payload.newStatus === 'completed') {
+        await this.boss.send('dealer-commission-calculate', {
+          serviceRequestId: payload.taskId,
+        } as Record<string, unknown>);
+      }
     }
 
     return { alreadyProcessed: false, task: updatedTask, statusLog };

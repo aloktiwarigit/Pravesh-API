@@ -158,7 +158,7 @@ describe('Dealer Controller', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.code).toBe('VALIDATION_INVALID_INPUT');
     });
 
     test('returns 400 for invalid aadhaarLastFour', async () => {

@@ -12,6 +12,12 @@ import {
   SLUG_DISPLAY_NAMES,
 } from './service-catalog-map';
 
+interface CoOwnerInput {
+  name: string;
+  phone: string;
+  relationship: 'co_owner' | 'co_heir' | 'spouse' | 'poa_holder';
+}
+
 interface SubmitRequestPayload {
   serviceId: string; // Flutter catalog slug (snake_case) or DB code (kebab-case) or UUID
   propertyType: string;
@@ -19,6 +25,11 @@ interface SubmitRequestPayload {
   ownershipStatus: string;
   packageId?: string;
   estimatedValuePaise?: number;
+  ownerName: string;
+  aadhaarLast4?: string;
+  surveyKhataNumber?: string;
+  sellerName?: string;
+  coOwners?: CoOwnerInput[];
 }
 
 interface AuthUser {
@@ -47,6 +58,14 @@ export class ServiceRequestSubmitService {
       );
 
       // 3. Create ServiceInstance
+      const instanceMetadata: Record<string, string> = {
+        ownershipStatus: payload.ownershipStatus,
+        ...(payload.packageId ? { packageId: payload.packageId } : {}),
+        ...(payload.aadhaarLast4 ? { aadhaarLast4: payload.aadhaarLast4 } : {}),
+        ...(payload.surveyKhataNumber ? { surveyKhataNumber: payload.surveyKhataNumber } : {}),
+        ...(payload.sellerName ? { sellerName: payload.sellerName } : {}),
+      };
+
       const serviceInstance = await tx.serviceInstance.create({
         data: {
           serviceDefinitionId: serviceDefinition.id,
@@ -58,10 +77,7 @@ export class ServiceRequestSubmitService {
           propertyValuePaise: payload.estimatedValuePaise
             ? BigInt(payload.estimatedValuePaise)
             : null,
-          metadata: {
-            ownershipStatus: payload.ownershipStatus,
-            ...(payload.packageId ? { packageId: payload.packageId } : {}),
-          },
+          metadata: instanceMetadata,
         },
       });
 
@@ -76,7 +92,13 @@ export class ServiceRequestSubmitService {
         payload.estimatedValuePaise,
       );
 
-      // 6. Create ServiceRequest
+      // 6. Look up customer phone from User record
+      const customerUser = await (tx as any).user.findUnique({
+        where: { id: user.id },
+        select: { phone: true },
+      });
+
+      // 7. Create ServiceRequest
       const serviceRequest = await tx.serviceRequest.create({
         data: {
           serviceInstanceId: serviceInstance.id,
@@ -86,6 +108,8 @@ export class ServiceRequestSubmitService {
           status: 'pending',
           requestNumber,
           serviceFeePaise: serviceFeePaise,
+          customerName: payload.ownerName,
+          customerPhone: customerUser?.phone ?? null,
           metadata: {
             source: 'flutter_app',
             propertyType: payload.propertyType,
@@ -94,6 +118,23 @@ export class ServiceRequestSubmitService {
           },
         },
       });
+
+      // 8. Create co-owner stakeholders if provided
+      if (payload.coOwners?.length) {
+        for (const coOwner of payload.coOwners) {
+          await (tx as any).serviceStakeholder.create({
+            data: {
+              serviceInstanceId: serviceInstance.id,
+              name: coOwner.name,
+              phone: `+91${coOwner.phone}`,
+              relationship: coOwner.relationship,
+              role: 'stakeholder',
+              status: 'invited',
+              cityId,
+            },
+          });
+        }
+      }
 
       return {
         id: serviceRequest.id,

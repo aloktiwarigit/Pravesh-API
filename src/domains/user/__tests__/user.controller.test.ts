@@ -130,7 +130,7 @@ describe('User Controller', () => {
         .send({ email: 'not-an-email' });
 
       expect(res.status).toBe(400);
-      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.code).toBe('VALIDATION_INVALID_INPUT');
     });
 
     test('returns 400 for invalid languagePref', async () => {

@@ -80,6 +80,25 @@ export class DocumentsService {
   }
 
   // ================================================================
+  // Ownership verification: ensure user has access to a service instance
+  // ================================================================
+  async verifyAccess(userId: string, userRole: string, serviceInstanceId: string): Promise<boolean> {
+    if (['ops_manager', 'ops_executive', 'admin'].includes(userRole)) {
+      return true; // Ops/admin can access any instance
+    }
+    const instance = await this.prisma.serviceInstance.findFirst({
+      where: {
+        id: serviceInstanceId,
+        ...(userRole === 'agent'
+          ? { assignedAgentId: userId }
+          : { customerId: userId }),
+      },
+      select: { id: true },
+    });
+    return !!instance;
+  }
+
+  // ================================================================
   // Story 6.2: Document retrieval methods
   // ================================================================
   async getDocumentsByServiceInstance(serviceInstanceId: string) {

@@ -48,7 +48,13 @@ export class WireTransferService {
         amountPaise: params.amountPaise,
         foreignCurrencyCode: params.foreignCurrencyCode || null,
         foreignAmount: params.foreignAmount || null,
-        accountNumber: process.env.WIRE_TRANSFER_ACCOUNT_NUMBER || 'TBD',
+        accountNumber: (() => {
+          const acct = process.env.WIRE_TRANSFER_ACCOUNT_NUMBER;
+          if (!acct || acct === 'TBD') {
+            throw new Error('WIRE_TRANSFER_ACCOUNT_NUMBER env var must be set before initiating wire transfers');
+          }
+          return acct;
+        })(),
         slaDeadline,
       },
     });

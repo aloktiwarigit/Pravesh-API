@@ -42,7 +42,7 @@ export class BankAccountService {
         accountNumberEncrypted,
         accountType: input.accountType,
         verificationCode,
-        verified: false,
+        isVerified: false,
       },
     });
 
@@ -80,7 +80,7 @@ export class BankAccountService {
       throw new BusinessError('ACCOUNT_NOT_FOUND', 'Bank account not found');
     }
 
-    if (account.verified) {
+    if (account.isVerified) {
       throw new BusinessError('ACCOUNT_ALREADY_VERIFIED', 'Account is already verified');
     }
 
@@ -90,7 +90,7 @@ export class BankAccountService {
 
     await this.prisma.dealerBankAccount.update({
       where: { id: accountId },
-      data: { verified: true, verificationCode: null },
+      data: { isVerified: true, verificationCode: null },
     });
 
     return { verified: true };
@@ -101,7 +101,7 @@ export class BankAccountService {
    */
   async setPrimaryAccount(dealerId: string, accountId: string) {
     const account = await this.prisma.dealerBankAccount.findFirst({
-      where: { id: accountId, dealerId, verified: true },
+      where: { id: accountId, dealerId, isVerified: true },
     });
 
     if (!account) {
@@ -138,7 +138,7 @@ export class BankAccountService {
         ifscCode: true,
         accountNumberMasked: true,
         accountType: true,
-        verified: true,
+        isVerified: true,
         isPrimary: true,
       },
       orderBy: [{ isPrimary: 'desc' }, { createdAt: 'desc' }],

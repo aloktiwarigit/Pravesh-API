@@ -24,6 +24,12 @@ import { logger } from '../utils/logger';
  * /api-docs path is not intercepted by the auth middleware.
  */
 export function setupSwagger(app: Express): void {
+  // Disable Swagger UI in production to prevent API schema exposure
+  if (process.env.NODE_ENV === 'production') {
+    logger.info('Swagger UI disabled in production');
+    return;
+  }
+
   const swaggerUiOptions: swaggerUi.SwaggerUiOptions = {
     explorer: true,
     customSiteTitle: 'Property Legal Agent API Docs',

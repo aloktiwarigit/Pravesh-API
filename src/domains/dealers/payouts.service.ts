@@ -5,13 +5,20 @@
  */
 
 import { PrismaClient, CommissionStatus, DealerBankAccount } from '@prisma/client';
+import { RazorpayPayoutClient } from '../../core/integrations/razorpay-payout.client';
 import { decrypt } from '../../shared/utils/encryption';
 import { logger } from '../../shared/utils/logger';
 
 const MIN_PAYOUT_PAISE = 50000n; // Rs. 500 minimum threshold
 
 export class PayoutService {
-  constructor(private readonly prisma: PrismaClient) {}
+  private readonly prisma: PrismaClient;
+  private readonly razorpayClient?: RazorpayPayoutClient;
+
+  constructor(prisma: PrismaClient, razorpayClient?: RazorpayPayoutClient) {
+    this.prisma = prisma;
+    this.razorpayClient = razorpayClient;
+  }
 
   /**
    * Process full payout cycle.
@@ -50,7 +57,7 @@ export class PayoutService {
         where: {
           dealerId: agg.dealerId,
           isPrimary: true,
-          verified: true,
+          isVerified: true,
         },
       });
 
@@ -145,26 +152,61 @@ export class PayoutService {
 
   /**
    * Razorpay Payout API integration.
-   * In production, call POST https://api.razorpay.com/v1/payouts
+   * When RAZORPAY_PAYOUT_ENABLED=true and a client is available,
+   * creates a Contact + FundAccount + Payout via the real API.
+   * Otherwise returns a placeholder transaction ID.
    */
   private async initiateRazorpayPayout(
     bankAccount: DealerBankAccount,
     amountPaise: bigint,
     payoutId: string,
   ): Promise<string> {
-    if (!process.env.RAZORPAY_PAYOUT_ENABLED || process.env.RAZORPAY_PAYOUT_ENABLED !== 'true') {
+    if (process.env.RAZORPAY_PAYOUT_ENABLED !== 'true' || !this.razorpayClient) {
       logger.warn(
         { payoutId, amountPaise: amountPaise.toString() },
-        'RAZORPAY_PAYOUT_ENABLED is not set — skipping actual payout, returning placeholder transaction ID',
+        'RAZORPAY_PAYOUT_ENABLED is not set or no client — skipping actual payout, returning placeholder transaction ID',
       );
       return `txn_placeholder_${payoutId.slice(0, 8)}_${Date.now()}`;
     }
 
     // Decrypt account number only at payout time (NFR9)
-    const _accountNumber = decrypt(bankAccount.accountNumberEncrypted);
+    const accountNumber = decrypt(bankAccount.accountNumberEncrypted);
 
-    // Production: call Razorpay Payout API here
-    return `txn_${payoutId.slice(0, 8)}_${Date.now()}`;
+    // Step 1: Create or reuse Razorpay Contact
+    const contact = await this.razorpayClient.createContact({
+      name: bankAccount.accountHolderName,
+      contact: bankAccount.accountHolderName,
+      type: 'vendor',
+      reference_id: `dealer_payout_${payoutId}`,
+    });
+
+    // Step 2: Create Fund Account
+    const fundAccount = await this.razorpayClient.createFundAccount({
+      contact_id: contact.id,
+      account_type: 'bank_account',
+      bank_account: {
+        name: bankAccount.accountHolderName,
+        ifsc: bankAccount.ifscCode,
+        account_number: accountNumber,
+      },
+    });
+
+    // Step 3: Initiate Payout
+    const payout = await this.razorpayClient.createPayout({
+      fund_account_id: fundAccount.id,
+      amount: Number(amountPaise),
+      currency: 'INR',
+      mode: 'NEFT',
+      purpose: 'payout',
+      reference_id: payoutId,
+    });
+
+    logger.info(
+      { payoutId, razorpayPayoutId: payout.id, amountPaise: amountPaise.toString() },
+      'Razorpay payout initiated successfully',
+    );
+
+    return payout.id;
   }
 
   /**
@@ -186,17 +228,43 @@ export class PayoutService {
 
   /**
    * AC10: Ops payout dashboard for reconciliation.
+   * Returns counts per status plus aggregate paise amounts.
    */
   async getPayoutDashboard(cityId?: string) {
     const where = cityId ? { cityId } : {};
 
-    const [pending, processing, completed, failed] = await Promise.all([
-      this.prisma.dealerPayout.count({ where: { ...where, status: 'PENDING' } }),
-      this.prisma.dealerPayout.count({ where: { ...where, status: 'PROCESSING' } }),
-      this.prisma.dealerPayout.count({ where: { ...where, status: 'COMPLETED' } }),
-      this.prisma.dealerPayout.count({ where: { ...where, status: 'FAILED' } }),
-    ]);
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    return { pending, processing, completed, failed };
+    const [pending, processing, completed, failed, pendingAggregate, paidThisMonth] =
+      await Promise.all([
+        this.prisma.dealerPayout.count({ where: { ...where, status: 'PENDING' } }),
+        this.prisma.dealerPayout.count({ where: { ...where, status: 'PROCESSING' } }),
+        this.prisma.dealerPayout.count({ where: { ...where, status: 'COMPLETED' } }),
+        this.prisma.dealerPayout.count({ where: { ...where, status: 'FAILED' } }),
+        this.prisma.dealerPayout.aggregate({
+          where: { ...where, status: { in: ['PENDING', 'PROCESSING'] } },
+          _sum: { totalAmountPaise: true },
+          _count: true,
+        }),
+        this.prisma.dealerPayout.aggregate({
+          where: {
+            ...where,
+            status: 'COMPLETED',
+            processedAt: { gte: monthStart },
+          },
+          _sum: { totalAmountPaise: true },
+        }),
+      ]);
+
+    return {
+      pending,
+      processing,
+      completed,
+      failed,
+      totalPendingPaise: (pendingAggregate._sum.totalAmountPaise ?? 0n).toString(),
+      totalPaidThisMonthPaise: (paidThisMonth._sum.totalAmountPaise ?? 0n).toString(),
+      pendingCount: pendingAggregate._count,
+    };
   }
 }

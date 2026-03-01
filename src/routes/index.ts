@@ -32,6 +32,7 @@ import { createTrainingModuleController } from '../domains/franchise/training-mo
 import { createCorporateAuditController } from '../domains/franchise/corporate-audit.controller';
 import { createFranchiseOwnerProfileController } from '../domains/franchise/franchise-owner-profile.controller';
 import { createAdminDashboardController } from '../domains/admin/admin-dashboard.controller';
+import { createCommissionConfigController } from '../domains/admin/commission-config.controller';
 import { createAnalyticsController } from '../domains/analytics/analytics.controller';
 import { createExportController } from '../domains/analytics/export.controller';
 import { createFeatureUsageController } from '../domains/analytics/feature-usage.controller';
@@ -112,7 +113,6 @@ import { stakeholderRoutes } from '../domains/documents/stakeholders.controller'
 import { StakeholderService } from '../domains/documents/stakeholders.service';
 
 // Court tracking (Story 4.1X)
-import { createCourtTrackingController } from '../domains/lawyers/court-tracking.controller';
 
 // Lawyer domain (Epic 12 — Stories 12-1 through 12-12)
 import lawyerRoutes from './lawyers.routes';
@@ -318,15 +318,16 @@ export function createApiRouter(services: ServiceContainer, prismaInstance?: Pri
   }
 
   // Story 4.11: Referral Credits
-  // Note: authenticate is already applied at router level; pass no-op for authMiddleware
+  // authenticate is already applied at router level; pass no-op only for authMiddleware.
+  // roleMiddleware and validate use the real implementations.
   if (prismaInstance) {
     const referralService = new ReferralService(prismaInstance);
     const noopMiddleware = (_req: any, _res: any, next: any) => next();
     router.use('/referrals', createReferralRouter({
       referralService,
-      authMiddleware: noopMiddleware,
-      roleMiddleware: (..._roles: string[]) => noopMiddleware,
-      validate: () => noopMiddleware,
+      authMiddleware: noopMiddleware, // already applied at router level
+      roleMiddleware: (...roles: string[]) => authorize(...roles),
+      validate: () => noopMiddleware, // Zod validation happens inside the router handlers
     }));
   }
 
@@ -350,12 +351,6 @@ export function createApiRouter(services: ServiceContainer, prismaInstance?: Pri
     router.use('/support/tickets', createTicketController(prismaInstance));
   }
   router.use('/support', supportRouter);
-
-  // Story 4.1X: Court Hearing Tracking
-  // Mounted only at /hearings — /legal-cases is reserved for the lawyer legal case routes (Epic 12)
-  if (prismaInstance) {
-    router.use('/hearings', createCourtTrackingController(prismaInstance));
-  }
 
   // Story 5.1: Ops Dashboard
   if (prismaInstance) {
@@ -396,6 +391,7 @@ export function createApiRouter(services: ServiceContainer, prismaInstance?: Pri
   // Admin dashboard
   if (prismaInstance) {
     router.use('/admin', createAdminDashboardController(prismaInstance));
+    router.use('/admin/commission-config', createCommissionConfigController(prismaInstance));
   }
 
   return router;

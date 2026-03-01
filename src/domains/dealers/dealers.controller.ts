@@ -4,7 +4,7 @@
 // Request handling, Zod validation, standard { success, data } response
 // ============================================================
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { DealerService } from './dealers.service';
 import { AttributionService } from './attribution.service';
@@ -28,26 +28,12 @@ export function createDealerController(prisma: PrismaClient): Router {
   const badgeService = new BadgeService(prisma);
   const bankAccountService = new BankAccountService(prisma);
 
-  // Helper: standard error handler
-  function handleError(res: Response, error: any) {
-    if (error.name === 'ZodError') {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'Validation failed', details: error.errors },
-      });
-    }
-    const statusCode = error.statusCode || 500;
-    const code = error.code || 'SYSTEM_ERROR';
-    const message = error.message || 'An unexpected error occurred';
-    return res.status(statusCode).json({ success: false, error: { code, message } });
-  }
-
   // ==========================================================
   // Story 9.1: KYC Submission
   // ==========================================================
 
   // POST /api/v1/dealers/kyc — Submit dealer KYC
-  router.post('/kyc', async (req: Request, res: Response) => {
+  router.post('/kyc', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const cityId = (req as any).scope?.cityId || req.body.cityId;
@@ -55,12 +41,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       const result = await dealerService.submitKyc(userId, cityId, input);
       res.status(201).json({ success: true, data: result });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // GET /api/v1/dealers/kyc/status — Check KYC status
-  router.get('/kyc/status', async (req: Request, res: Response) => {
+  router.get('/kyc/status', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({
@@ -81,7 +67,7 @@ export function createDealerController(prisma: PrismaClient): Router {
         },
       });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -90,7 +76,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealers/ops/kyc-queue — Ops: list pending KYC
-  router.get('/ops/kyc-queue', authorize('ops', 'super_admin'), async (req: Request, res: Response) => {
+  router.get('/ops/kyc-queue', authorize('ops', 'super_admin'), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const cityId = req.query.cityId as string | undefined;
       const cursor = req.query.cursor as string | undefined;
@@ -107,24 +93,24 @@ export function createDealerController(prisma: PrismaClient): Router {
       });
       res.json({ success: true, data: queue });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // POST /api/v1/dealers/ops/:dealerId/approve — Ops approve KYC
-  router.post('/ops/:dealerId/approve', authorize('ops', 'super_admin'), async (req: Request, res: Response) => {
+  router.post('/ops/:dealerId/approve', authorize('ops', 'super_admin'), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const opsUserId = (req as any).user?.id;
       const cityId = req.query.cityId as string || '';
       const result = await dealerService.approveKyc(req.params.dealerId, opsUserId, cityId);
       res.json({ success: true, data: result });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // POST /api/v1/dealers/ops/:dealerId/reject — Ops reject KYC
-  router.post('/ops/:dealerId/reject', authorize('ops', 'super_admin'), async (req: Request, res: Response) => {
+  router.post('/ops/:dealerId/reject', authorize('ops', 'super_admin'), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const opsUserId = (req as any).user?.id;
       const input = kycRejectSchema.parse(req.body);
@@ -137,12 +123,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       );
       res.json({ success: true, data: result });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // GET /api/v1/dealers/ops/active — Ops: active dealers list
-  router.get('/ops/active', authorize('ops', 'super_admin'), async (req: Request, res: Response) => {
+  router.get('/ops/active', authorize('ops', 'super_admin'), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const cityId = req.query.cityId as string | undefined;
       const cursor = req.query.cursor as string | undefined;
@@ -166,7 +152,7 @@ export function createDealerController(prisma: PrismaClient): Router {
       });
       res.json({ success: true, data: dealers });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -175,7 +161,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealers/referral-data — Get referral link + QR URL
-  router.get('/referral-data', async (req: Request, res: Response) => {
+  router.get('/referral-data', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -188,7 +174,7 @@ export function createDealerController(prisma: PrismaClient): Router {
       const data = await dealerService.getDealerReferralData(dealer.id);
       res.json({ success: true, data });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -197,7 +183,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // POST /api/v1/dealers/track-click — Track referral link clicks
-  router.post('/track-click', async (req: Request, res: Response) => {
+  router.post('/track-click', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { dealerCode } = req.body;
       if (!dealerCode) {
@@ -225,7 +211,7 @@ export function createDealerController(prisma: PrismaClient): Router {
       });
       res.json({ success: true, data: { tracked: true } });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -234,7 +220,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // POST /api/v1/dealers/attribute — Attribute customer to dealer (from deep link)
-  router.post('/attribute', async (req: Request, res: Response) => {
+  router.post('/attribute', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { customerId, dealerCode, source } = req.body;
       if (!customerId || !dealerCode) {
@@ -261,7 +247,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealers/pipeline — Dealer pipeline with privacy controls
-  router.get('/pipeline', async (req: Request, res: Response) => {
+  router.get('/pipeline', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -279,7 +265,7 @@ export function createDealerController(prisma: PrismaClient): Router {
       );
       res.json({ success: true, data: pipeline });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -288,7 +274,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealers/tier-progress — Tier progress for current month
-  router.get('/tier-progress', async (req: Request, res: Response) => {
+  router.get('/tier-progress', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -301,7 +287,7 @@ export function createDealerController(prisma: PrismaClient): Router {
       const progress = await dealerService.getTierProgress(dealer.id);
       res.json({ success: true, data: progress });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -310,7 +296,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealers/leaderboard — City-scoped leaderboard
-  router.get('/leaderboard', async (req: Request, res: Response) => {
+  router.get('/leaderboard', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({
@@ -331,7 +317,7 @@ export function createDealerController(prisma: PrismaClient): Router {
       );
       res.json({ success: true, data: leaderboard });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -340,7 +326,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealers/badges — Get dealer badges
-  router.get('/badges', async (req: Request, res: Response) => {
+  router.get('/badges', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -353,12 +339,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       const badges = await badgeService.getDealerBadges(dealer.id);
       res.json({ success: true, data: badges });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // GET /api/v1/dealers/badges/progress — Next badge progress
-  router.get('/badges/progress', async (req: Request, res: Response) => {
+  router.get('/badges/progress', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -371,7 +357,7 @@ export function createDealerController(prisma: PrismaClient): Router {
       const progress = await badgeService.getNextBadgeProgress(dealer.id);
       res.json({ success: true, data: progress });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -380,7 +366,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealers/white-label — Get white-label settings
-  router.get('/white-label', async (req: Request, res: Response) => {
+  router.get('/white-label', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -401,12 +387,12 @@ export function createDealerController(prisma: PrismaClient): Router {
         },
       });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // PUT /api/v1/dealers/white-label — Update white-label settings
-  router.put('/white-label', async (req: Request, res: Response) => {
+  router.put('/white-label', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -420,7 +406,7 @@ export function createDealerController(prisma: PrismaClient): Router {
       const result = await dealerService.updateWhiteLabel(dealer.id, input);
       res.json({ success: true, data: result });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -429,7 +415,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealers/bank-accounts — List bank accounts (masked)
-  router.get('/bank-accounts', async (req: Request, res: Response) => {
+  router.get('/bank-accounts', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -442,12 +428,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       const accounts = await bankAccountService.getDealerAccounts(dealer.id);
       res.json({ success: true, data: accounts });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // POST /api/v1/dealers/bank-accounts — Add bank account
-  router.post('/bank-accounts', async (req: Request, res: Response) => {
+  router.post('/bank-accounts', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -461,12 +447,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       const account = await bankAccountService.addBankAccount(dealer.id, input);
       res.status(201).json({ success: true, data: account });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // POST /api/v1/dealers/bank-accounts/:accountId/verify — Verify bank account
-  router.post('/bank-accounts/:accountId/verify', async (req: Request, res: Response) => {
+  router.post('/bank-accounts/:accountId/verify', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -484,12 +470,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       );
       res.json({ success: true, data: result });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // POST /api/v1/dealers/bank-accounts/:accountId/set-primary — Set primary account
-  router.post('/bank-accounts/:accountId/set-primary', async (req: Request, res: Response) => {
+  router.post('/bank-accounts/:accountId/set-primary', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -505,7 +491,7 @@ export function createDealerController(prisma: PrismaClient): Router {
       );
       res.json({ success: true, data: result });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -514,7 +500,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealers/profile — Dealer profile
-  router.get('/profile', async (req: Request, res: Response) => {
+  router.get('/profile', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       let dealer = await prisma.dealer.findUnique({
@@ -577,12 +563,12 @@ export function createDealerController(prisma: PrismaClient): Router {
         },
       });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // GET /api/v1/dealers/kyc-status — Alias for Flutter compatibility
-  router.get('/kyc-status', async (req: Request, res: Response) => {
+  router.get('/kyc-status', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({
@@ -604,7 +590,7 @@ export function createDealerController(prisma: PrismaClient): Router {
         },
       });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -615,7 +601,7 @@ export function createDealerController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /dealers/me/referral → same as /dealers/referral-data
-  router.get('/me/referral', async (req: Request, res: Response) => {
+  router.get('/me/referral', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -633,12 +619,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       const data = await dealerService.getDealerReferralData(dealer.id);
       res.json({ success: true, data });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // GET /dealers/me/pipeline → same as /dealers/pipeline
-  router.get('/me/pipeline', async (req: Request, res: Response) => {
+  router.get('/me/pipeline', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -651,12 +637,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       );
       res.json({ success: true, data: pipeline });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // GET /dealers/me/earnings/summary
-  router.get('/me/earnings/summary', async (req: Request, res: Response) => {
+  router.get('/me/earnings/summary', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -690,24 +676,24 @@ export function createDealerController(prisma: PrismaClient): Router {
         },
       });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // GET /dealers/me/earnings/forecast
-  router.get('/me/earnings/forecast', async (req: Request, res: Response) => {
+  router.get('/me/earnings/forecast', async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json({
         success: true,
         data: { forecastPaise: 0, inProgressCount: 0, avgCommissionPaise: 0 },
       });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // GET /dealers/me/commissions
-  router.get('/me/commissions', async (req: Request, res: Response) => {
+  router.get('/me/commissions', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -724,12 +710,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       });
       res.json({ success: true, data: commissions });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // GET /dealers/me/tier-progress → same as /dealers/tier-progress
-  router.get('/me/tier-progress', async (req: Request, res: Response) => {
+  router.get('/me/tier-progress', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -748,12 +734,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       const progress = await dealerService.getTierProgress(dealer.id);
       res.json({ success: true, data: progress });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // GET /dealers/me/badges → same as /dealers/badges
-  router.get('/me/badges', async (req: Request, res: Response) => {
+  router.get('/me/badges', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -763,12 +749,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       const badges = await badgeService.getDealerBadges(dealer.id);
       res.json({ success: true, data: badges });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // GET /dealers/me/badge-progress → same as /dealers/badges/progress
-  router.get('/me/badge-progress', async (req: Request, res: Response) => {
+  router.get('/me/badge-progress', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -778,12 +764,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       const progress = await badgeService.getNextBadgeProgress(dealer.id);
       res.json({ success: true, data: progress });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // POST /dealers/me/bank-accounts → same as POST /dealers/bank-accounts
-  router.post('/me/bank-accounts', async (req: Request, res: Response) => {
+  router.post('/me/bank-accounts', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -797,12 +783,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       const account = await bankAccountService.addBankAccount(dealer.id, input);
       res.status(201).json({ success: true, data: account });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // PUT /dealers/me/bank-accounts/:accountId/primary → set primary bank account
-  router.put('/me/bank-accounts/:accountId/primary', async (req: Request, res: Response) => {
+  router.put('/me/bank-accounts/:accountId/primary', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -818,12 +804,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       );
       res.json({ success: true, data: result });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // POST /dealers/me/verify → stub for dealer verification
-  router.post('/me/verify', async (req: Request, res: Response) => {
+  router.post('/me/verify', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -835,12 +821,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       }
       res.json({ success: true, data: { verified: true, dealerId: dealer.id } });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // GET /dealers/me/bank-accounts → same as /dealers/bank-accounts
-  router.get('/me/bank-accounts', async (req: Request, res: Response) => {
+  router.get('/me/bank-accounts', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -850,12 +836,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       const accounts = await bankAccountService.getDealerAccounts(dealer.id);
       res.json({ success: true, data: accounts });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // GET /dealers/me/payouts
-  router.get('/me/payouts', async (req: Request, res: Response) => {
+  router.get('/me/payouts', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const dealer = await prisma.dealer.findUnique({ where: { userId } });
@@ -869,12 +855,12 @@ export function createDealerController(prisma: PrismaClient): Router {
       });
       res.json({ success: true, data: payouts });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
   // POST /dealers/register → stub for dealer registration
-  router.post('/register', async (req: Request, res: Response) => {
+  router.post('/register', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       // Check if already registered
@@ -896,7 +882,7 @@ export function createDealerController(prisma: PrismaClient): Router {
       });
       res.status(201).json({ success: true, data: { dealerId: dealer.id } });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 

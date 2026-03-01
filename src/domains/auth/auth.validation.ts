@@ -14,6 +14,7 @@ const VALID_ROLES = [
   'agent',
   'dealer',
   'ops',
+  'ops_manager',
   'builder',
   'lawyer',
   'franchise_owner',
@@ -40,8 +41,14 @@ const USER_STATUS = [
 export const registerSchema = z.object({
   phone: z
     .string()
-    .regex(/^\+?(?:91)?[0-9]{10}$/, 'Phone must be 10 digits, optionally prefixed with +91 or 91')
-    .transform((val) => val.replace(/^\+?91/, '').slice(-10))
+    .transform((val) => (val === '' ? undefined : val))
+    .pipe(
+      z
+        .string()
+        .regex(/^\+?(?:91)?[0-9]{10}$/, 'Phone must be 10 digits, optionally prefixed with +91 or 91')
+        .transform((val) => val.replace(/^\+?91/, '').slice(-10))
+        .optional(),
+    )
     .optional(),
   displayName: z.string().min(1).max(100).optional(),
   firebaseUid: z.string().min(1, 'firebaseUid is required'),

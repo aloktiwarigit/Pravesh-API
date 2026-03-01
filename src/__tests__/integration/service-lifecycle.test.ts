@@ -283,6 +283,7 @@ describe('[P1] Service Request Lifecycle Integration', () => {
         propertyType: 'residential',
         propertyLocation: '456 Oak Ave, Lucknow',
         ownershipStatus: 'self',
+        ownerName: 'Test Owner',
         estimatedValuePaise: 5000000,
       });
 
@@ -297,6 +298,7 @@ describe('[P1] Service Request Lifecycle Integration', () => {
         propertyType: 'residential',
         propertyLocation: '456 Oak Ave, Lucknow',
         ownershipStatus: 'self',
+        ownerName: 'Test Owner',
         estimatedValuePaise: 5000000,
       },
       expect.objectContaining({
@@ -391,12 +393,12 @@ describe('[P1] Service Request Lifecycle Integration', () => {
     });
 
     expect(mockSubmitRequest).toHaveBeenCalledWith(
-      {
+      expect.objectContaining({
         serviceId: 'svc-002',
         propertyType: 'commercial',
         propertyLocation: '100 Business Park, Lucknow',
         ownershipStatus: 'self',
-      },
+      }),
       expect.objectContaining({
         id: 'customer-001',
       }),

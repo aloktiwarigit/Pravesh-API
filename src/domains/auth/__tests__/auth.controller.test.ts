@@ -138,7 +138,7 @@ describe('Auth Controller', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.code).toBe('VALIDATION_INVALID_INPUT');
     });
 
     test('returns 400 for missing firebaseUid', async () => {
@@ -149,7 +149,7 @@ describe('Auth Controller', () => {
       });
 
       expect(res.status).toBe(400);
-      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.code).toBe('VALIDATION_INVALID_INPUT');
     });
 
     test('returns 400 for phone with non-numeric characters', async () => {
@@ -304,7 +304,7 @@ describe('Auth Controller', () => {
         .send({ userId: VALID_UUID, roles: [] });
 
       expect(res.status).toBe(400);
-      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.code).toBe('VALIDATION_INVALID_INPUT');
     });
 
     test('returns 400 for invalid role name', async () => {

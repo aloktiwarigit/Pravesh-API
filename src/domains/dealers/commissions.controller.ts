@@ -4,7 +4,7 @@
 // Earnings summary, commission history, CSV export, forecast, payouts
 // ============================================================
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { CommissionService } from './commissions.service';
 import { PayoutService } from './payouts.service';
@@ -13,20 +13,6 @@ export function createCommissionController(prisma: PrismaClient): Router {
   const router = Router();
   const commissionService = new CommissionService(prisma);
   const payoutService = new PayoutService(prisma);
-
-  // Helper: standard error handler
-  function handleError(res: Response, error: any) {
-    if (error.name === 'ZodError') {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'Validation failed', details: error.errors },
-      });
-    }
-    const statusCode = error.statusCode || 500;
-    const code = error.code || 'SYSTEM_ERROR';
-    const message = error.message || 'An unexpected error occurred';
-    return res.status(statusCode).json({ success: false, error: { code, message } });
-  }
 
   // Helper: resolve dealerId from auth
   async function getDealerId(req: Request): Promise<string | null> {
@@ -44,7 +30,7 @@ export function createCommissionController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealer-commissions/earnings — Earnings summary
-  router.get('/earnings', async (req: Request, res: Response) => {
+  router.get('/earnings', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const dealerId = await getDealerId(req);
       if (!dealerId) {
@@ -56,7 +42,7 @@ export function createCommissionController(prisma: PrismaClient): Router {
       const summary = await commissionService.getEarningsSummary(dealerId);
       res.json({ success: true, data: summary });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -65,7 +51,7 @@ export function createCommissionController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealer-commissions/history — Commission history (cursor-paginated)
-  router.get('/history', async (req: Request, res: Response) => {
+  router.get('/history', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const dealerId = await getDealerId(req);
       if (!dealerId) {
@@ -97,7 +83,7 @@ export function createCommissionController(prisma: PrismaClient): Router {
         },
       });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -106,7 +92,7 @@ export function createCommissionController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealer-commissions/export — CSV export
-  router.get('/export', async (req: Request, res: Response) => {
+  router.get('/export', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const dealerId = await getDealerId(req);
       if (!dealerId) {
@@ -117,7 +103,7 @@ export function createCommissionController(prisma: PrismaClient): Router {
       }
       await commissionService.exportCommissionsCsv(dealerId, res);
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -126,7 +112,7 @@ export function createCommissionController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealer-commissions/forecast — Projected earnings
-  router.get('/forecast', async (req: Request, res: Response) => {
+  router.get('/forecast', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const dealerId = await getDealerId(req);
       if (!dealerId) {
@@ -138,7 +124,22 @@ export function createCommissionController(prisma: PrismaClient): Router {
       const forecast = await commissionService.getEarningsForecast(dealerId);
       res.json({ success: true, data: forecast });
     } catch (error) {
-      handleError(res, error);
+      next(error);
+    }
+  });
+
+  // ==========================================================
+  // Story 9.14: Ops — All Pending Commissions
+  // ==========================================================
+
+  // GET /api/v1/dealer-commissions/ops/pending — Ops view of all pending commissions
+  router.get('/ops/pending', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const cityId = req.query.cityId as string | undefined;
+      const pending = await commissionService.getAllPendingCommissions(cityId);
+      res.json({ success: true, data: pending });
+    } catch (error) {
+      next(error);
     }
   });
 
@@ -147,7 +148,7 @@ export function createCommissionController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealer-commissions/pending — Approved, awaiting payout
-  router.get('/pending', async (req: Request, res: Response) => {
+  router.get('/pending', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const dealerId = await getDealerId(req);
       if (!dealerId) {
@@ -166,7 +167,7 @@ export function createCommissionController(prisma: PrismaClient): Router {
       }));
       res.json({ success: true, data: serialized });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -175,7 +176,7 @@ export function createCommissionController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealer-commissions/payouts — Payout history
-  router.get('/payouts', async (req: Request, res: Response) => {
+  router.get('/payouts', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const dealerId = await getDealerId(req);
       if (!dealerId) {
@@ -198,7 +199,7 @@ export function createCommissionController(prisma: PrismaClient): Router {
       }));
       res.json({ success: true, data: serialized });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 
@@ -207,13 +208,13 @@ export function createCommissionController(prisma: PrismaClient): Router {
   // ==========================================================
 
   // GET /api/v1/dealer-commissions/ops/payout-dashboard — Ops reconciliation
-  router.get('/ops/payout-dashboard', async (req: Request, res: Response) => {
+  router.get('/ops/payout-dashboard', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const cityId = req.query.cityId as string | undefined;
       const dashboard = await payoutService.getPayoutDashboard(cityId);
       res.json({ success: true, data: dashboard });
     } catch (error) {
-      handleError(res, error);
+      next(error);
     }
   });
 

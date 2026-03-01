@@ -44,7 +44,17 @@ export function serviceInstanceRoutes(
     '/:instanceId',
     async (req: Request, res: Response, next: NextFunction) => {
       try {
+        const user = (req as any).user!;
         const instance = await service.getInstance(req.params.instanceId);
+
+        // Ownership check: customers see only their own, agents their assigned
+        const isOpsOrAdmin = ['ops_manager', 'ops_executive', 'admin'].includes(user.role);
+        const isOwner = instance.customerId === user.id;
+        const isAssignedAgent = instance.assignedAgentId === user.id;
+        if (!isOpsOrAdmin && !isOwner && !isAssignedAgent) {
+          return res.status(403).json({ success: false, error: { code: 'AUTH_FORBIDDEN', message: 'You do not have access to this service instance' } });
+        }
+
         res.json({ success: true, data: instance });
       } catch (error) {
         next(error);
