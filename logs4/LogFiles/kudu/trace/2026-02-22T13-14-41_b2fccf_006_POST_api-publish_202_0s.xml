@@ -1,0 +1,16 @@
+<step title="Incoming Request" date="2026-02-22T13:14:41.832" instance="b2fccf" url="/api/publish?type=zip&amp;async=True" method="POST" type="request" pid="836,1,45" Accept="*/*" Host="pla-api-server.scm.azurewebsites.net" User-Agent="AZURECLI/2.83.0 (MSI)" Accept-Encoding="gzip, deflate" Authorization="Bea..." Cache-Control="no-cache" Content-Type="application/octet-stream" Cookie="ARRAffinity=b2fccf9116282c9672b2b47d85ae1e40a0982f2853d98adce6127a0953fdfb84; ARRAffinitySameSite=b2fccf9116282c9672b2b47d85ae1e40a0982f2853d98adce6127a0953fdfb84" Content-Length="1165203" x-ms-client-request-id="646427bf-0ff0-11f1-bc11-d7f367e06d63" x-ms-artifact-checksum="1053cb970925f28edd303dc4373c6d01508f3a5d0634f6ab7b951be248fbd52a" X-ARR-LOG-ID="646427bf-0ff0-11f1-bc11-d7f367e06d63" CLIENT-IP="104.246.25.113:53746" X-SITE-DEPLOYMENT-ID="pla-api-server" WAS-DEFAULT-HOSTNAME="pla-api-server.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/publish?type=zip&amp;async=True" X-Client-IP="104.246.25.113" X-Client-Port="53746" >
+  <step title="Cleanup Xml Logs" date="2026-02-22T13:14:41.898" >
+    <step title="Cleanup Infos" date="2026-02-22T13:14:41.965" totalFiles="541" totalCleanup="381" /><!-- duration: 3ms -->
+  </step><!-- duration: 72ms -->
+  <step title="OneDeploy" date="2026-02-22T13:14:42.019" >
+    <step title="Starting PushDeployAsync" date="2026-02-22T13:14:42.025" /><!-- duration: 1ms -->
+    <step title="Writing artifact to /tmp/zipdeploy/cb1c991f-0583-44e1-bfb9-661f1e6d6fae.zip" date="2026-02-22T13:14:42.039" >
+      <step title="Writing multipart request body to /tmp/zipdeploy/cb1c991f-0583-44e1-bfb9-661f1e6d6fae.zip" date="2026-02-22T13:14:42.041" /><!-- duration: 2ms -->
+    </step><!-- duration: 72ms -->
+    <step title="Start deployment in the background" date="2026-02-22T13:14:42.120" >
+      <step title="Acquiring Deployment Lock" date="2026-02-22T13:14:42.156" /><!-- duration: 1ms -->
+      <step title="Acquired Deployment Lock" date="2026-02-22T13:14:42.220" /><!-- duration: 1ms -->
+    </step><!-- duration: 185ms -->
+  </step><!-- duration: 295ms -->
+  <step title="Outgoing response" date="2026-02-22T13:14:42.317" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 2ms -->
+</step><!-- duration: 487ms -->

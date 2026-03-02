@@ -1,0 +1,7 @@
+<step title="Incoming Request" date="2026-02-20T05:01:03.790" instance="b2fccf" url="/api/logs/docker" method="GET" type="request" pid="833,1,25" Accept="*/*" Host="pla-api-server.scm.azurewebsites.net" User-Agent="python/3.13.9 (Windows-11-10.0.22631-SP0) AZURECLI/2.80.0 (MSI)" Accept-Encoding="gzip, deflate" Authorization="Bea..." x-ms-client-request-id="531b7c5d-fd6b-4210-ab76-f48af3dfc863" CommandName="rest" ParameterSetName="--method --url --resource -o" X-ARR-LOG-ID="531b7c5d-fd6b-4210-ab76-f48af3dfc863" CLIENT-IP="104.246.25.113:49917" X-SITE-DEPLOYMENT-ID="pla-api-server" WAS-DEFAULT-HOSTNAME="pla-api-server.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/logs/docker" X-Client-IP="104.246.25.113" X-Client-Port="49917" >
+  <step title="Cleanup Xml Logs" date="2026-02-20T05:01:03.828" >
+    <step title="Cleanup Infos" date="2026-02-20T05:01:03.871" totalFiles="433" totalCleanup="273" /><!-- duration: 20ms -->
+  </step><!-- duration: 72ms -->
+  <step title="DiagnosticsController.GetDockerLogs" date="2026-02-20T05:01:04.019" /><!-- duration: 240ms -->
+  <step title="Outgoing response" date="2026-02-20T05:01:04.309" type="response" statusCode="200" statusText="OK" /><!-- duration: 111ms -->
+</step><!-- duration: 691ms -->

@@ -4,8 +4,10 @@
  */
 
 import { Prisma, PrismaClient } from '@prisma/client';
+import admin from 'firebase-admin';
 import { BusinessError } from '../../shared/errors/business-error';
 import { UpdateProfileInput } from './user.validation';
+import { logger } from '../../shared/utils/logger';
 
 export class UserService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -80,6 +82,42 @@ export class UserService {
     }
 
     return user;
+  }
+
+  // ============================================================
+  // Delete account (Play Store requirement — user data deletion)
+  // ============================================================
+
+  async deleteAccount(firebaseUid: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { firebaseUid },
+    });
+
+    if (!user) {
+      throw new BusinessError('USER_NOT_FOUND', 'User not found', 404);
+    }
+
+    // Soft-delete: anonymize PII and mark as deleted
+    await this.prisma.user.update({
+      where: { firebaseUid },
+      data: {
+        displayName: '[deleted]',
+        email: null,
+        phone: `deleted-${user.id.substring(0, 8)}`,
+        status: 'DEACTIVATED',
+        profileData: Prisma.DbNull,
+      },
+    });
+
+    // Delete Firebase Auth account
+    try {
+      await admin.auth().deleteUser(firebaseUid);
+    } catch (err) {
+      logger.warn({ err, firebaseUid }, 'Firebase auth delete failed — user data already anonymized in DB');
+    }
+
+    logger.info({ userId: user.id }, 'Account deleted (anonymized + Firebase auth removed)');
+    return { deleted: true };
   }
 
   // ============================================================

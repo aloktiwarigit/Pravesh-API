@@ -1,0 +1,15 @@
+<step title="Incoming Request" date="2026-02-13T04:22:35.939" instance="bda878" url="/api/zipdeploy?isAsync=true" method="POST" type="request" pid="831,1,29" Accept="*/*" Host="pla-api-server.scm.azurewebsites.net" User-Agent="AZURECLI/2.80.0 (MSI)" Accept-Encoding="gzip, deflate" Authorization="Bea..." Cache-Control="no-cache" Content-Type="application/octet-stream" Content-Length="3980829" x-ms-client-request-id="41346b6e-0893-11f1-a57b-645d8629d5aa" x-ms-artifact-checksum="a7a622eb8938987658ad268fbf58bb2b25bfcecaae3bbd9359e4abdd1fe0d75a" X-ARR-LOG-ID="41346b6e-0893-11f1-a57b-645d8629d5aa" CLIENT-IP="104.246.25.113:58780" X-SITE-DEPLOYMENT-ID="pla-api-server" WAS-DEFAULT-HOSTNAME="pla-api-server.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/zipdeploy?isAsync=true" X-Client-IP="104.246.25.113" X-Client-Port="58780" >
+  <step title="Cleanup Xml Logs" date="2026-02-13T04:22:35.948" /><!-- duration: 16ms -->
+  <step title="ZipPushDeploy" date="2026-02-13T04:22:36.139" >
+    <step title="ZipDeploy. Extract zip." date="2026-02-13T04:22:36.165" /><!-- duration: 13ms -->
+    <step title="Starting PushDeployAsync" date="2026-02-13T04:22:36.184" /><!-- duration: 6ms -->
+    <step title="Writing artifact to /tmp/zipdeploy/2099a60f-2029-4f53-80ed-a6b13524fb76.zip" date="2026-02-13T04:22:36.222" >
+      <step title="Writing multipart request body to /tmp/zipdeploy/2099a60f-2029-4f53-80ed-a6b13524fb76.zip" date="2026-02-13T04:22:36.228" /><!-- duration: 5ms -->
+    </step><!-- duration: 180ms -->
+    <step title="Start deployment in the background" date="2026-02-13T04:22:36.450" >
+      <step title="Acquiring Deployment Lock" date="2026-02-13T04:22:36.561" /><!-- duration: 17ms -->
+      <step title="Acquired Deployment Lock" date="2026-02-13T04:22:36.695" /><!-- duration: 38ms -->
+    </step><!-- duration: 657ms -->
+  </step><!-- duration: 1045ms -->
+  <step title="Outgoing response" date="2026-02-13T04:22:37.198" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 14ms -->
+</step><!-- duration: 1298ms -->

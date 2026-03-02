@@ -38,6 +38,12 @@ const USER_STATUS = [
 // POST /register — After Firebase phone auth on client
 // ============================================================
 
+// Name: letters, spaces, hyphens, apostrophes, dots only
+const nameSchema = z.string().min(2, 'Name must be at least 2 characters').max(100).regex(
+  /^[a-zA-Z\s'\-\.]+$/,
+  'Name can only contain letters, spaces, hyphens, apostrophes, and dots',
+);
+
 export const registerSchema = z.object({
   phone: z
     .string()
@@ -50,7 +56,7 @@ export const registerSchema = z.object({
         .optional(),
     )
     .optional(),
-  displayName: z.string().min(1).max(100).optional(),
+  displayName: nameSchema.optional(),
   firebaseUid: z.string().min(1, 'firebaseUid is required'),
   email: z.string().email().optional(),
   languagePref: z.enum(['en', 'hi']).optional(),

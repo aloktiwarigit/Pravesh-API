@@ -1,0 +1,11 @@
+<step title="Incoming Request" date="2026-02-22T23:05:08.161" instance="b2fccf" url="/api/deployments/latest" method="GET" type="request" pid="833,1,62" Accept="*/*" Host="pla-api-server.scm.azurewebsites.net" User-Agent="AZURECLI/2.83.0 (MSI)" Accept-Encoding="gzip, deflate" Authorization="Bea..." x-ms-client-request-id="95dd1582-1042-11f1-b1c2-dc43098a6ada" X-ARR-LOG-ID="95dd1582-1042-11f1-b1c2-dc43098a6ada" CLIENT-IP="104.246.25.113:57064" X-SITE-DEPLOYMENT-ID="pla-api-server" WAS-DEFAULT-HOSTNAME="pla-api-server.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/deployments/latest" X-Client-IP="104.246.25.113" X-Client-Port="57064" >
+  <step title="Cleanup Xml Logs" date="2026-02-22T23:05:08.170" >
+    <step title="Cleanup Infos" date="2026-02-22T23:05:08.291" totalFiles="651" totalCleanup="491" /><!-- duration: 10ms -->
+  </step><!-- duration: 141ms -->
+  <step title="DeploymentService.GetResult" date="2026-02-22T23:05:08.343" >
+    <step title="DeploymentService.GetLatestDeployment" date="2026-02-22T23:05:08.344" >
+      <step title="DeploymentManager.GetResults" date="2026-02-22T23:05:08.352" /><!-- duration: 843ms -->
+    </step><!-- duration: 861ms -->
+  </step><!-- duration: 870ms -->
+  <step title="Outgoing response" date="2026-02-22T23:05:09.223" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 2ms -->
+</step><!-- duration: 1066ms -->

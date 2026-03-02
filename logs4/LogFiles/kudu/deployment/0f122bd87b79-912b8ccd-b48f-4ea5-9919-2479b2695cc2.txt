@@ -1,0 +1,6 @@
+2026-02-22T17:53:51  Fetching changes.
+2026-02-22T17:53:51    Starting  LocalZipHandler
+2026-02-22T17:53:51    Cleaning up temp folders from previous zip deployments and extracting pushed zip file /tmp/zipdeploy/7857087d-0d4e-40fa-9c34-adeb24f2dae2.zip (141.70 MB) to /tmp/zipdeploy/extracted
+2026-02-22T17:54:53  Updating submodules.
+2026-02-22T17:54:53  Preparing deployment for commit id '9d41c8ba-1'.
+2026-02-22T17:54:54  PreDeployment: context.CleanOutputPath False

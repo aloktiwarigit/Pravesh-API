@@ -1,9 +1,13 @@
 // Story 6.2 + 6.6 + 6.8 + 6.11b + 6.14: Document Management REST Controller
 import { Router, Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
 import { DocumentsService } from './documents.service.js';
 import { createDocumentSchema, queryDocumentsSchema, overrideSchema } from './documents.validation.js';
 import { auditLog } from '../../middleware/audit-logger.js';
+import { authorize } from '../../middleware/authorize.js';
+import { logger } from '../../shared/utils/logger.js';
+
+const OPS_ROLES = ['ops_manager', 'ops_executive', 'admin', 'super_admin'];
 
 export function documentsRoutes(service: DocumentsService): Router {
   const router = Router();
@@ -22,8 +26,13 @@ export function documentsRoutes(service: DocumentsService): Router {
         return res.status(403).json({ success: false, error: { code: 'AUTH_FORBIDDEN', message: 'You do not have access to this service instance' } });
       }
 
+      // Derive uploadedBy from server-side role, not client input.
+      // Prevents customers from sending uploaded_by='agent' to bypass AI verification.
+      const serverUploadedBy = ['agent', 'ops_manager', 'ops_executive', 'admin'].includes(user.role) ? 'agent' : 'customer';
+
       const document = await service.createDocument({
         ...body,
+        uploadedBy: serverUploadedBy,
         uploadedByUserId: user.id,
         cityId: user.cityId,
       });
@@ -39,7 +48,7 @@ export function documentsRoutes(service: DocumentsService): Router {
         metadata: {
           doc_type: body.docType,
           file_size: body.fileSize,
-          uploaded_by: body.uploadedBy,
+          uploaded_by: serverUploadedBy,
         },
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
@@ -47,6 +56,19 @@ export function documentsRoutes(service: DocumentsService): Router {
 
       res.status(201).json({ success: true, data: document });
     } catch (error) {
+      if (error instanceof ZodError) {
+        logger.warn({
+          fields: {
+            service_instance_id: req.body?.service_instance_id,
+            doc_type: req.body?.doc_type,
+            storage_path: req.body?.storage_path,
+            file_size: req.body?.file_size,
+            uploaded_by: req.body?.uploaded_by,
+            // download_url intentionally excluded — contains access token
+          },
+          zodErrors: error.errors,
+        }, 'Document upload validation failed');
+      }
       next(error);
     }
   });
@@ -88,7 +110,7 @@ export function documentsRoutes(service: DocumentsService): Router {
   // ================================================================
   // Story 6.6: GET /api/v1/documents/review-queue — ops review queue
   // ================================================================
-  router.get('/review-queue', async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/review-queue', authorize(...OPS_ROLES), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const cursor = req.query.cursor as string | undefined;
       const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
@@ -135,6 +157,13 @@ export function documentsRoutes(service: DocumentsService): Router {
   router.get('/stakeholder-status', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const serviceInstanceId = z.string().uuid().parse(req.query.service_instance_id);
+      const user = (req as any).user!;
+
+      const hasAccess = await service.verifyAccess(user.id, user.role, serviceInstanceId);
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, error: { code: 'AUTH_FORBIDDEN', message: 'You do not have access to this service instance' } });
+      }
+
       const statuses = await service.getPerStakeholderStatus(serviceInstanceId);
       res.json({ success: true, data: statuses });
     } catch (error) {
@@ -203,7 +232,7 @@ export function documentsRoutes(service: DocumentsService): Router {
   // ================================================================
   // Story 6.6: PUT /api/v1/documents/:id/override — human override
   // ================================================================
-  router.put('/:id/override', async (req: Request, res: Response, next: NextFunction) => {
+  router.put('/:id/override', authorize(...OPS_ROLES), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { action, reason_category, notes, flag_ai_incorrect } = overrideSchema.parse(req.body);
       const documentId = req.params.id;
@@ -245,6 +274,12 @@ export function documentsRoutes(service: DocumentsService): Router {
         return res.status(404).json({ success: false, error: { code: 'DOCUMENT_NOT_FOUND', message: 'Document not found' } });
       }
 
+      const user = (req as any).user!;
+      const hasAccess = await service.verifyAccess(user.id, user.role, document.serviceInstanceId);
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, error: { code: 'AUTH_FORBIDDEN', message: 'You do not have access to this document' } });
+      }
+
       if (!document.archivedAt) {
         return res.status(400).json({
           success: false,
@@ -277,6 +312,11 @@ export function documentsRoutes(service: DocumentsService): Router {
       const hasAccess = await service.verifyAccess(user.id, user.role, doc.serviceInstanceId);
       if (!hasAccess) {
         return res.status(403).json({ success: false, error: { code: 'AUTH_FORBIDDEN', message: 'You do not have access to this document' } });
+      }
+
+      // Customers can only delete their own uploads; ops/agents can delete any
+      if (!OPS_ROLES.includes(user.role) && user.role !== 'agent' && doc.uploadedByUserId !== user.id) {
+        return res.status(403).json({ success: false, error: { code: 'AUTH_FORBIDDEN', message: 'You can only delete documents you uploaded' } });
       }
 
       await service.deleteDocument(req.params.id);

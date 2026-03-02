@@ -1,0 +1,32 @@
+<step title="BackgroundTrace" date="2026-03-01T03:30:29.383" instance="b2fccf" url="/api/publish" method="POST" >
+  <step title="Cleanup Xml Logs" date="2026-03-01T03:30:29.390" >
+    <step title="Cleanup Infos" date="2026-03-01T03:30:29.411" totalFiles="868" totalCleanup="708" /><!-- duration: 10ms -->
+  </step><!-- duration: 35ms -->
+  <step title="Creating temporary deployment - FetchDeploymentManager" date="2026-03-01T03:30:29.492" /><!-- duration: 8ms -->
+  <step title="Creating temporary deployment" date="2026-03-01T03:30:29.504" /><!-- duration: 90ms -->
+  <step title="Performing fetch based deployment" date="2026-03-01T03:30:29.668" >
+    <step title="Deployment timer started" date="2026-03-01T03:30:33.473" >
+      <step title="DeploymentManager.Deploy(id:65a18f1e-3805-4c9a-8221-c20e1bb6bca0)" date="2026-03-01T03:30:33.482" >
+        <step title="Collecting changeset information" date="2026-03-01T03:30:33.511" /><!-- duration: 141ms -->
+        <step title="Updating submodules" date="2026-03-01T03:30:33.659" /><!-- duration: 1196ms -->
+        <step title="Determining deployment builder" date="2026-03-01T03:30:35.148" >
+          <step title="Builder is RunFromZipSiteBuilder" date="2026-03-01T03:30:35.160" /><!-- duration: 11ms -->
+        </step><!-- duration: 27ms -->
+        <step title="PreDeployment: context.CleanOutputPath False" date="2026-03-01T03:30:35.254" >
+          <step title="PreDeployment: context.OutputPath /home/site/wwwroot" date="2026-03-01T03:30:35.391" >
+            <step title="Building" date="2026-03-01T03:30:35.581" >
+              <step title="Modified file to trigger a restart of the app container." date="2026-03-01T03:30:36.171" /><!-- duration: 7ms -->
+              <step title="Skip function trigger and logicapp sync because function is not enabled." date="2026-03-01T03:30:36.187" /><!-- duration: 10ms -->
+              <step title="Purge deployment items" date="2026-03-01T03:30:38.901" >
+                <step title="Remove 8107449e-, Success, received at 02/25/2026 22:36:47" date="2026-03-01T03:30:38.969" /><!-- duration: 4ms -->
+              </step><!-- duration: 80ms -->
+            </step><!-- duration: 3485ms -->
+          </step><!-- duration: 3680ms -->
+          <step title="Cleaning up temp files" date="2026-03-01T03:30:39.075" /><!-- duration: 5ms -->
+          <step title="Cleaning up temp files" date="2026-03-01T03:30:39.103" /><!-- duration: 507ms -->
+          <step title="Reloading status file with latest updates" date="2026-03-01T03:30:39.668" >
+            <step title="WebHooksManager.PublishEventAsync: PostDeployment" date="2026-03-01T03:30:39.674" /><!-- duration: 41ms -->
+          </step><!-- duration: 50ms -->
+          <step title="Cleaning up temporary deployment - fetch deployment was successful" date="2026-03-01T03:30:39.724" /><!-- duration: 4ms -->
+        </step><!-- duration: 4579ms -->
+      </step><!-- duration: 6366ms -->

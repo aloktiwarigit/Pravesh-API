@@ -1,0 +1,134 @@
+2026-02-13T07:08:36  Fetching changes.
+2026-02-13T07:08:36    Starting  LocalZipHandler
+2026-02-13T07:08:36    Cleaning up temp folders from previous zip deployments and extracting pushed zip file /tmp/zipdeploy/3cf36055-8768-4681-aa3a-fc61c7593d53.zip (1.04 MB) to /tmp/zipdeploy/extracted
+2026-02-13T07:08:44  Updating submodules.
+2026-02-13T07:08:45  Preparing deployment for commit id 'f8aad75e-d'.
+2026-02-13T07:08:45  PreDeployment: context.CleanOutputPath False
+2026-02-13T07:08:46  PreDeployment: context.OutputPath /home/site/wwwroot
+2026-02-13T07:08:46  Repository path is /tmp/zipdeploy/extracted
+2026-02-13T07:08:47  Running oryx build...
+2026-02-13T07:08:47    Command: oryx build /tmp/zipdeploy/extracted -o /home/site/wwwroot --platform nodejs --platform-version 22 -p virtualenv_name= --log-file /tmp/build-debug.log  -i /tmp/8de6aceba4fea6a -p compress_node_modules=tar-gz | tee /tmp/oryx-build.log
+2026-02-13T07:08:51    Operation performed by Microsoft Oryx, https://github.com/Microsoft/Oryx
+2026-02-13T07:08:51    You can report issues at https://github.com/Microsoft/Oryx/issues
+2026-02-13T07:08:51    
+2026-02-13T07:08:51    Oryx Version: 0.2.20260115.4+48f1ac3ece84aa5cb4bc058527a29842156d553c, Commit: 48f1ac3ece84aa5cb4bc058527a29842156d553c, ReleaseTagName: 20260115.4
+2026-02-13T07:08:51    
+2026-02-13T07:08:51    Build Operation ID: 2e1fc009184ab3d5
+2026-02-13T07:08:51    Repository Commit : f8aad75e-d796-4606-ab10-d81e4d8936bc
+2026-02-13T07:08:51    OS Type           : bookworm
+2026-02-13T07:08:51    Image Type        : githubactions
+2026-02-13T07:08:51    
+2026-02-13T07:08:51    Primary SDK Storage URL: https://oryx-cdn.microsoft.io
+2026-02-13T07:08:51    Backup SDK Storage URL: 
+2026-02-13T07:08:52    Detecting platforms...
+2026-02-13T07:08:52    External SDK provider is enabled.
+2026-02-13T07:08:52    Requesting metadata for platform nodejs from external SDK provider
+2026-02-13T07:08:57    Requesting metadata for platform nodejs from external SDK provider
+2026-02-13T07:08:59    Detected following platforms:
+2026-02-13T07:08:59      nodejs: 22.22.0
+2026-02-13T07:08:59    Requesting metadata for platform nodejs from external SDK provider
+2026-02-13T07:09:01    Version '22.22.0' of platform 'nodejs' is not installed. Generating script to install it...
+2026-02-13T07:09:01    Detected the following frameworks: Typescript,Express
+2026-02-13T07:09:02    
+2026-02-13T07:09:02    Using intermediate directory '/tmp/8de6aceba4fea6a'.
+2026-02-13T07:09:02    
+2026-02-13T07:09:02    Copying files to the intermediate directory...
+2026-02-13T07:09:04    Copying files to intermediate directory done in 2 sec(s).
+2026-02-13T07:09:04    
+2026-02-13T07:09:04    Source directory     : /tmp/8de6aceba4fea6a
+2026-02-13T07:09:04    Destination directory: /home/site/wwwroot
+2026-02-13T07:09:04    
+2026-02-13T07:09:04    Installing platform...
+2026-02-13T07:09:04    
+2026-02-13T07:09:04    Downloading and extracting 'nodejs' version '22.22.0' to '/tmp/oryx/platforms/nodejs/22.22.0'...
+2026-02-13T07:09:04    Detected image debian flavor: bookworm.
+2026-02-13T07:09:04    Skipping download of nodejs version 22.22.0 as it is available in external sdk provider cache...
+2026-02-13T07:09:04    Extracting contents...
+2026-02-13T07:09:09    Successfully extracted nodejs version 22.22.0 from external sdk provider cache...
+2026-02-13T07:09:09    
+2026-02-13T07:09:09    Platform installation done in 5 sec(s).
+2026-02-13T07:09:10    Running build script snippets...
+2026-02-13T07:09:10    Removing existing manifest file
+2026-02-13T07:09:10    Creating directory for command manifest file if it does not exist
+2026-02-13T07:09:10    Creating a manifest file...
+2026-02-13T07:09:10    Node Build Command Manifest file created.
+2026-02-13T07:09:10    
+2026-02-13T07:09:10    Using Node version:
+2026-02-13T07:09:11    v22.22.0
+2026-02-13T07:09:11    
+2026-02-13T07:09:11    Using Npm version:
+2026-02-13T07:09:12    10.9.4
+2026-02-13T07:09:12    
+2026-02-13T07:09:12    Running 'npm install'...
+2026-02-13T07:09:12    
+2026-02-13T07:09:39    npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2026-02-13T07:09:39    npm warn deprecated lodash.get@4.4.2: This package is deprecated. Use the optional chaining (?.) operator instead.
+2026-02-13T07:09:39    npm warn deprecated rimraf@2.7.1: Rimraf versions prior to v4 are no longer supported
+2026-02-13T07:09:39    npm warn deprecated supertest@6.3.4: Please upgrade to supertest v7.1.3+, see release notes at https://github.com/forwardemail/supertest/releases/tag/v7.1.3 - maintenance is supported by Forward Email @ https://forwardemail.net
+2026-02-13T07:09:39    npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+2026-02-13T07:09:40    npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+2026-02-13T07:09:41    npm warn deprecated fstream@1.0.12: This package is no longer supported.
+2026-02-13T07:09:42    npm warn deprecated superagent@8.1.2: Please upgrade to superagent v10.2.2+, see release notes at https://github.com/forwardemail/superagent/releases/tag/v10.2.2 - maintenance is supported by Forward Email @ https://forwardemail.net
+2026-02-13T07:10:28    
+2026-02-13T07:10:28    > property-legal-agent-api@1.0.0 postinstall
+2026-02-13T07:10:28    > prisma generate
+2026-02-13T07:10:28    
+2026-02-13T07:10:31    Environment variables loaded from .env
+2026-02-13T07:10:31    Prisma schema loaded from prisma/schema.prisma
+2026-02-13T07:10:34    Error: Prisma schema validation - (get-dmmf wasm)
+2026-02-13T07:10:34    Error code: P1012
+2026-02-13T07:10:34    [1;91merror[0m: [1mThe model "CourtHearing" cannot be defined because a model with that name already exists.[0m
+2026-02-13T07:10:34      [1;94m-->[0m  [4mprisma/schema.prisma:3020[0m
+2026-02-13T07:10:34    [1;94m   | [0m
+2026-02-13T07:10:34    [1;94m3019 | [0m
+2026-02-13T07:10:34    [1;94m3020 | [0mmodel [1;91mCourtHearing[0m {
+2026-02-13T07:10:34    [1;94m   | [0m
+2026-02-13T07:10:34    
+2026-02-13T07:10:34    Validation Error Count: 1
+2026-02-13T07:10:34    [Context: getDmmf]
+2026-02-13T07:10:35    
+2026-02-13T07:10:35    Prisma CLI Version : 5.22.0
+2026-02-13T07:10:35    npm error code 1
+2026-02-13T07:10:35    npm error path /tmp/8de6aceba4fea6a
+2026-02-13T07:10:35    npm error command failed
+2026-02-13T07:10:35    npm error command sh -c prisma generate
+2026-02-13T07:10:35    npm error A complete log of this run can be found in: /home/.npm/_logs/2026-02-13T07_09_12_818Z-debug-0.log
+2026-02-13T07:10:37    npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated lodash.get@4.4.2: This package is deprecated. Use the optional chaining (?.) operator instead.
+npm warn deprecated rimraf@2.7.1: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated supertest@6.3.4: Please upgrade to supertest v7.1.3+, see release notes at https://github.com/forwardemail/supertest/releases/tag/v7.1.3 - maintenance is supported by Forward Email @ https://forwardemail.net
+npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated fstream@1.0.12: This package is no longer supported.
+npm warn deprecated superagent@8.1.2: Please upgrade to superagent v10.2.2+, see release notes at https://github.com/forwardemail/superagent/releases/tag/v10.2.2 - maintenance is supported by Forward Email @ https://forwardemail.net
+Error: Prisma schema validation - (get-dmmf wasm)
+Error code: P1012
+[1;91merror[0m: [1mThe model "CourtHearing" cannot be defined because a model with that name already exists.[0m
+  [1;94m-->[0m  [4mprisma/schema.prisma:3020[0m
+[1;94m   | [0m
+[1;94m3019 | [0m
+[1;94m3020 | [0mmodel [1;91mCourtHearing[0m {
+[1;94m   | [0m
+
+Validation Error Count: 1
+[Context: getDmmf]
+
+Prisma CLI Version : 5.22.0
+npm error code 1
+npm error path /tmp/8de6aceba4fea6a
+npm error command failed
+npm error command sh -c prisma generate
+npm error A complete log of this run can be found in: /home/.npm/_logs/2026-02-13T07_09_12_818Z-debug-0.log
+/bin/bash -c "oryx build /tmp/zipdeploy/extracted -o /home/site/wwwroot --platform nodejs --platform-version 22 -p virtualenv_name= --log-file /tmp/build-debug.log  -i /tmp/8de6aceba4fea6a -p compress_node_modules=tar-gz | tee /tmp/oryx-build.log ; exit $PIPESTATUS "
+2026-02-13T07:10:37  
+2026-02-13T07:10:37  
+2026-02-13T07:10:38  Generating summary of Oryx build
+2026-02-13T07:10:38  Parsing the build logs
+2026-02-13T07:10:38  Found 0 issue(s)
+2026-02-13T07:10:38  
+2026-02-13T07:10:39  Build Summary :
+2026-02-13T07:10:39  ===============
+2026-02-13T07:10:39  Errors (0)
+2026-02-13T07:10:39  Warnings (0)
+2026-02-13T07:10:39  
+2026-02-13T07:10:40  Deployment Failed. deployer = OneDeploy deploymentPath = OneDeploy

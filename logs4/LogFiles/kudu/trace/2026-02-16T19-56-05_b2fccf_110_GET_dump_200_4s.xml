@@ -1,0 +1,6 @@
+<step title="Incoming Request" date="2026-02-16T19:56:05.351" instance="b2fccf" url="/dump" method="GET" type="request" pid="833,1,35" Host="pla-api-server.scm.azurewebsites.net" User-Agent="AZURECLI/2.80.0 (MSI)" Accept-Encoding="identity" Authorization="Bea..." x-ms-client-request-id="7f4a1265-0b71-11f1-be8c-645d8629d5aa" X-ARR-LOG-ID="7f4a1265-0b71-11f1-be8c-645d8629d5aa" CLIENT-IP="104.246.25.113:62457" X-SITE-DEPLOYMENT-ID="pla-api-server" WAS-DEFAULT-HOSTNAME="pla-api-server.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/dump" X-Client-IP="104.246.25.113" X-Client-Port="62457" >
+  <step title="Cleanup Xml Logs" date="2026-02-16T19:56:05.359" >
+    <step title="Cleanup Infos" date="2026-02-16T19:56:05.389" totalFiles="327" totalCleanup="167" /><!-- duration: 30ms -->
+  </step><!-- duration: 62ms -->
+  <step title="Outgoing response" date="2026-02-16T19:56:09.683" type="response" statusCode="200" statusText="OK" /><!-- duration: 10ms -->
+</step><!-- duration: 4469ms -->

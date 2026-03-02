@@ -1,0 +1,10 @@
+<step title="Incoming Request" date="2026-02-20T05:01:56.251" instance="b2fccf" url="/logstream" method="GET" type="request" pid="833,1,26" Host="pla-api-server.scm.azurewebsites.net" User-Agent="AZURECLI/2.80.0 (MSI)" Accept-Encoding="identity" Authorization="Bea..." x-ms-client-request-id="f587a5c2-0e18-11f1-a787-645d8629d5aa" X-ARR-LOG-ID="f587a5c2-0e18-11f1-a787-645d8629d5aa" CLIENT-IP="104.246.25.113:60832" X-SITE-DEPLOYMENT-ID="pla-api-server" WAS-DEFAULT-HOSTNAME="pla-api-server.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/logstream" X-Client-IP="104.246.25.113" X-Client-Port="60832" >
+  <step title="Cleanup Xml Logs" date="2026-02-20T05:01:56.270" >
+    <step title="Cleanup Infos" date="2026-02-20T05:01:56.352" totalFiles="436" totalCleanup="276" /><!-- duration: 9ms -->
+  </step><!-- duration: 92ms -->
+  <step title="LogStreamHandlerMiddleware.Invoke" date="2026-02-20T05:01:56.410" /><!-- duration: 415ms -->
+  <step title="Error occurred" date="2026-02-20T07:01:56.533" type="error" text="LogStreamManager: Inside TerminateClient" /><!-- duration: 2ms -->
+  <step title="Error occurred" date="2026-02-20T07:01:56.541" type="error" text="LogStreamManager: Inside Reset" /><!-- duration: 1ms -->
+  <step title="Error occurred" date="2026-02-20T08:54:57.824" type="error" text="LogStreamManager: ProcessRequest end" /><!-- duration: 5ms -->
+  <step title="Outgoing response" date="2026-02-20T08:54:57.832" type="response" statusCode="200" statusText="OK" /><!-- duration: 2ms -->
+</step><!-- duration: 13981585ms -->

@@ -1,0 +1,17 @@
+<step title="Incoming Request" date="2026-02-28T23:44:26.693" instance="b2fccf" url="/api/publish?type=zip&amp;async=True" method="POST" type="request" pid="833,1,29" Accept="*/*" Host="pla-api-server.scm.azurewebsites.net" User-Agent="AZURECLI/2.83.0 (MSI)" Accept-Encoding="gzip, deflate" Authorization="Bea..." Cache-Control="no-cache" Content-Type="application/octet-stream" Cookie="ARRAffinity=b2fccf9116282c9672b2b47d85ae1e40a0982f2853d98adce6127a0953fdfb84; ARRAffinitySameSite=b2fccf9116282c9672b2b47d85ae1e40a0982f2853d98adce6127a0953fdfb84" Content-Length="98147143" x-ms-client-request-id="5b0c5186-14ff-11f1-acb1-ef6d4f8cd726" x-ms-artifact-checksum="8a07fcee9e762cbafa2db8404cd20d9a740aa6a62eda3f12b7928dfc04975692" X-ARR-LOG-ID="5b0c5186-14ff-11f1-acb1-ef6d4f8cd726" CLIENT-IP="104.246.25.113:58845" X-SITE-DEPLOYMENT-ID="pla-api-server" WAS-DEFAULT-HOSTNAME="pla-api-server.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/publish?type=zip&amp;async=True" X-Client-IP="104.246.25.113" X-Client-Port="58845" >
+  <step title="Cleanup Xml Logs" date="2026-02-28T23:44:26.698" >
+    <step title="Cleanup Infos" date="2026-02-28T23:44:26.835" totalFiles="854" totalCleanup="694" /><!-- duration: 7ms -->
+  </step><!-- duration: 148ms -->
+  <step title="OneDeploy" date="2026-02-28T23:44:26.925" >
+    <step title="Starting PushDeployAsync" date="2026-02-28T23:44:26.955" /><!-- duration: 4ms -->
+    <step title="WEBSITE_RUN_FROM_PACKAGE is set to 1. Writing zip to SitePackagesPath" date="2026-02-28T23:44:26.977" /><!-- duration: 4ms -->
+    <step title="Copying zip to SitePackages /home/data/SitePackages/20260228234426.zip from request body" date="2026-02-28T23:44:26.989" /><!-- duration: 5ms -->
+    <step title="Writing multipart request body to /home/data/SitePackages/20260228234426.zip" date="2026-02-28T23:44:26.999" /><!-- duration: 8ms -->
+    <step title="Deleting outdated zip file /home/data/SitePackages/20260228005344.zip" date="2026-02-28T23:45:14.914" /><!-- duration: 312ms -->
+    <step title="Start deployment in the background" date="2026-02-28T23:45:15.259" >
+      <step title="Acquiring Deployment Lock" date="2026-02-28T23:45:15.329" /><!-- duration: 4ms -->
+      <step title="Acquired Deployment Lock" date="2026-02-28T23:45:15.377" /><!-- duration: 4ms -->
+    </step><!-- duration: 224ms -->
+  </step><!-- duration: 48569ms -->
+  <step title="Outgoing response" date="2026-02-28T23:45:15.503" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 5ms -->
+</step><!-- duration: 48833ms -->

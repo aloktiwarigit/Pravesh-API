@@ -1,0 +1,207 @@
+<step title="BackgroundTrace" date="2026-02-15T04:31:06.443" instance="b2fccf" url="/api/zipdeploy" method="POST" >
+  <step title="Creating temporary deployment - FetchDeploymentManager" date="2026-02-15T04:31:06.533" /><!-- duration: 1ms -->
+  <step title="Creating temporary deployment" date="2026-02-15T04:31:06.536" /><!-- duration: 153ms -->
+  <step title="Performing fetch based deployment" date="2026-02-15T04:31:06.739" >
+    <step title="Cleaning up temp folders from previous zip deployments and extracting pushed zip file /tmp/zipdeploy/1d7f659f-e066-45a7-a31b-121786c8da0b.zip (1.12 MB) to /tmp/zipdeploy/extracted" date="2026-02-15T04:31:07.956" >
+      <step title="ChmodRecursive Process exited with total time taken in ms: 99" date="2026-02-15T04:31:09.087" /><!-- duration: 8ms -->
+    </step><!-- duration: 1147ms -->
+    <step title="Deployment timer started" date="2026-02-15T04:31:11.123" >
+      <step title="DeploymentManager.Deploy(id:61338312-705d-457b-99b0-f11a4e4ac03b)" date="2026-02-15T04:31:11.133" >
+        <step title="Collecting changeset information" date="2026-02-15T04:31:11.141" /><!-- duration: 98ms -->
+        <step title="Updating submodules" date="2026-02-15T04:31:11.242" /><!-- duration: 1151ms -->
+        <step title="Determining deployment builder" date="2026-02-15T04:31:12.660" >
+          <step title="Builder is OryxBuilder" date="2026-02-15T04:31:12.669" /><!-- duration: 2ms -->
+        </step><!-- duration: 16ms -->
+        <step title="PreDeployment: context.CleanOutputPath False" date="2026-02-15T04:31:12.735" >
+          <step title="PreDeployment: context.OutputPath /home/site/wwwroot" date="2026-02-15T04:31:12.879" >
+            <step title="Building" date="2026-02-15T04:31:13.091" >
+              <step title="Executing external process" date="2026-02-15T04:31:13.439" type="process" path="bash" arguments="-c &quot;oryx build /tmp/zipdeploy/extracted -o /home/site/wwwroot --platform nodejs --platform-version 22 -p virtualenv_name= --log-file /tmp/build-debug.log  -i /tmp/8de6c4b0cd5b016 -p compress_node_modules=tar-gz | tee /tmp/oryx-build.log ; exit $PIPESTATUS &quot;" >
+                <step title="Process dump" date="2026-02-15T04:31:50.439" exitCode="1" type="processOutput" /><!-- duration: 2ms -->
+              </step><!-- duration: 37041ms -->
+              <step title="Error occurred" date="2026-02-15T04:31:50.572" type="error" text="npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: @asteasolutions/zod-to-openapi@8.4.0
+npm error Found: zod@3.25.76
+npm error node_modules/zod
+npm error   zod@&quot;^3.22.0&quot; from the root project
+npm error
+npm error Could not resolve dependency:
+npm error peer zod@&quot;^4.0.0&quot; from @asteasolutions/zod-to-openapi@8.4.0
+npm error node_modules/@asteasolutions/zod-to-openapi
+npm error   @asteasolutions/zod-to-openapi@&quot;^8.4.0&quot; from the root project
+npm error
+npm error Conflicting peer dependency: zod@4.3.6
+npm error node_modules/zod
+npm error   peer zod@&quot;^4.0.0&quot; from @asteasolutions/zod-to-openapi@8.4.0
+npm error   node_modules/@asteasolutions/zod-to-openapi
+npm error     @asteasolutions/zod-to-openapi@&quot;^8.4.0&quot; from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error /home/.npm/_logs/2026-02-15T04_31_41_973Z-eresolve-report.txt
+npm error A complete log of this run can be found in: /home/.npm/_logs/2026-02-15T04_31_41_973Z-debug-0.log
+/bin/bash -c &quot;oryx build /tmp/zipdeploy/extracted -o /home/site/wwwroot --platform nodejs --platform-version 22 -p virtualenv_name= --log-file /tmp/build-debug.log  -i /tmp/8de6c4b0cd5b016 -p compress_node_modules=tar-gz | tee /tmp/oryx-build.log ; exit $PIPESTATUS &quot;" stackTrace="   at Kudu.Core.Infrastructure.Executable.ExecuteInternal(ITracer tracer, Func`2 onWriteOutput, Func`2 onWriteError, CancellationToken token, Encoding encoding, String arguments, Object[] args) in /tmp/KuduLite/Kudu.Core/Infrastructure/Executable.cs:line 239
+   at Kudu.Core.Infrastructure.Executable.ExecuteWithProgressWriter(ILogger logger, ITracer tracer, CancellationToken token, String arguments, Object[] args) in /tmp/KuduLite/Kudu.Core/Infrastructure/Executable.cs:line 118
+   at Kudu.Core.Deployment.Generator.ExternalCommandBuilder.RunCommand(DeploymentContext context, String command, Boolean ignoreManifest, CancellationToken token, String message) in /tmp/KuduLite/Kudu.Core/Deployment/Generator/ExternalCommandBuilder.cs:line 135" /><!-- duration: 30ms -->
+              <step title="Error occurred" date="2026-02-15T04:31:50.620" type="error" text="npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: @asteasolutions/zod-to-openapi@8.4.0
+npm error Found: zod@3.25.76
+npm error node_modules/zod
+npm error   zod@&quot;^3.22.0&quot; from the root project
+npm error
+npm error Could not resolve dependency:
+npm error peer zod@&quot;^4.0.0&quot; from @asteasolutions/zod-to-openapi@8.4.0
+npm error node_modules/@asteasolutions/zod-to-openapi
+npm error   @asteasolutions/zod-to-openapi@&quot;^8.4.0&quot; from the root project
+npm error
+npm error Conflicting peer dependency: zod@4.3.6
+npm error node_modules/zod
+npm error   peer zod@&quot;^4.0.0&quot; from @asteasolutions/zod-to-openapi@8.4.0
+npm error   node_modules/@asteasolutions/zod-to-openapi
+npm error     @asteasolutions/zod-to-openapi@&quot;^8.4.0&quot; from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error /home/.npm/_logs/2026-02-15T04_31_41_973Z-eresolve-report.txt
+npm error A complete log of this run can be found in: /home/.npm/_logs/2026-02-15T04_31_41_973Z-debug-0.log
+/bin/bash -c &quot;oryx build /tmp/zipdeploy/extracted -o /home/site/wwwroot --platform nodejs --platform-version 22 -p virtualenv_name= --log-file /tmp/build-debug.log  -i /tmp/8de6c4b0cd5b016 -p compress_node_modules=tar-gz | tee /tmp/oryx-build.log ; exit $PIPESTATUS &quot;" stackTrace="   at Kudu.Core.Infrastructure.Executable.ExecuteInternal(ITracer tracer, Func`2 onWriteOutput, Func`2 onWriteError, CancellationToken token, Encoding encoding, String arguments, Object[] args) in /tmp/KuduLite/Kudu.Core/Infrastructure/Executable.cs:line 239
+   at Kudu.Core.Infrastructure.Executable.ExecuteWithProgressWriter(ILogger logger, ITracer tracer, CancellationToken token, String arguments, Object[] args) in /tmp/KuduLite/Kudu.Core/Infrastructure/Executable.cs:line 118
+   at Kudu.Core.Deployment.Generator.ExternalCommandBuilder.RunCommand(DeploymentContext context, String command, Boolean ignoreManifest, CancellationToken token, String message) in /tmp/KuduLite/Kudu.Core/Deployment/Generator/ExternalCommandBuilder.cs:line 135
+   at Kudu.Core.Deployment.Generator.OryxBuilder.RunBuildCommand(IOryxArguments args, DeploymentContext context, CancellationToken token) in /tmp/KuduLite/Kudu.Core/Deployment/Generator/OryxBuilder.cs:line 295
+   at Kudu.Core.Deployment.Generator.OryxBuilder.Build(DeploymentContext context, CancellationToken token) in /tmp/KuduLite/Kudu.Core/Deployment/Generator/OryxBuilder.cs:line 136
+   at Kudu.Core.Deployment.DeploymentManager.Build(ChangeSet changeSet, ITracer tracer, IDisposable deployStep, IRepository repository, DeploymentInfoBase deploymentInfo, DeploymentAnalytics deploymentAnalytics, Boolean fullBuildByDefault, CancellationToken cancellationToken) in /tmp/KuduLite/Kudu.Core/Deployment/DeploymentManager.cs:line 771" /><!-- duration: 2ms -->
+              <step title="Using GenericDeploymentLogParser" date="2026-02-15T04:31:50.866" /><!-- duration: 9ms -->
+            </step><!-- duration: 39659ms -->
+          </step><!-- duration: 39872ms -->
+          <step title="Error occurred" date="2026-02-15T04:31:52.753" type="error" text="npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: @asteasolutions/zod-to-openapi@8.4.0
+npm error Found: zod@3.25.76
+npm error node_modules/zod
+npm error   zod@&quot;^3.22.0&quot; from the root project
+npm error
+npm error Could not resolve dependency:
+npm error peer zod@&quot;^4.0.0&quot; from @asteasolutions/zod-to-openapi@8.4.0
+npm error node_modules/@asteasolutions/zod-to-openapi
+npm error   @asteasolutions/zod-to-openapi@&quot;^8.4.0&quot; from the root project
+npm error
+npm error Conflicting peer dependency: zod@4.3.6
+npm error node_modules/zod
+npm error   peer zod@&quot;^4.0.0&quot; from @asteasolutions/zod-to-openapi@8.4.0
+npm error   node_modules/@asteasolutions/zod-to-openapi
+npm error     @asteasolutions/zod-to-openapi@&quot;^8.4.0&quot; from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error /home/.npm/_logs/2026-02-15T04_31_41_973Z-eresolve-report.txt
+npm error A complete log of this run can be found in: /home/.npm/_logs/2026-02-15T04_31_41_973Z-debug-0.log
+/bin/bash -c &quot;oryx build /tmp/zipdeploy/extracted -o /home/site/wwwroot --platform nodejs --platform-version 22 -p virtualenv_name= --log-file /tmp/build-debug.log  -i /tmp/8de6c4b0cd5b016 -p compress_node_modules=tar-gz | tee /tmp/oryx-build.log ; exit $PIPESTATUS &quot;" stackTrace="   at Kudu.Core.Infrastructure.Executable.ExecuteInternal(ITracer tracer, Func`2 onWriteOutput, Func`2 onWriteError, CancellationToken token, Encoding encoding, String arguments, Object[] args) in /tmp/KuduLite/Kudu.Core/Infrastructure/Executable.cs:line 239
+   at Kudu.Core.Infrastructure.Executable.ExecuteWithProgressWriter(ILogger logger, ITracer tracer, CancellationToken token, String arguments, Object[] args) in /tmp/KuduLite/Kudu.Core/Infrastructure/Executable.cs:line 118
+   at Kudu.Core.Deployment.Generator.ExternalCommandBuilder.RunCommand(DeploymentContext context, String command, Boolean ignoreManifest, CancellationToken token, String message) in /tmp/KuduLite/Kudu.Core/Deployment/Generator/ExternalCommandBuilder.cs:line 135
+   at Kudu.Core.Deployment.Generator.OryxBuilder.RunBuildCommand(IOryxArguments args, DeploymentContext context, CancellationToken token) in /tmp/KuduLite/Kudu.Core/Deployment/Generator/OryxBuilder.cs:line 295
+   at Kudu.Core.Deployment.Generator.OryxBuilder.Build(DeploymentContext context, CancellationToken token) in /tmp/KuduLite/Kudu.Core/Deployment/Generator/OryxBuilder.cs:line 136
+   at Kudu.Core.Deployment.DeploymentManager.Build(ChangeSet changeSet, ITracer tracer, IDisposable deployStep, IRepository repository, DeploymentInfoBase deploymentInfo, DeploymentAnalytics deploymentAnalytics, Boolean fullBuildByDefault, CancellationToken cancellationToken) in /tmp/KuduLite/Kudu.Core/Deployment/DeploymentManager.cs:line 771
+   at Kudu.Core.Deployment.DeploymentManager.Build(ChangeSet changeSet, ITracer tracer, IDisposable deployStep, IRepository repository, DeploymentInfoBase deploymentInfo, DeploymentAnalytics deploymentAnalytics, Boolean fullBuildByDefault, CancellationToken cancellationToken) in /tmp/KuduLite/Kudu.Core/Deployment/DeploymentManager.cs:line 840" /><!-- duration: 1ms -->
+          <step title="Cleaning up temp files" date="2026-02-15T04:31:52.806" /><!-- duration: 106ms -->
+          <step title="Cleaning up temp files" date="2026-02-15T04:31:52.922" /><!-- duration: 510ms -->
+          <step title="Error occurred" date="2026-02-15T04:31:53.480" type="error" text="npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: @asteasolutions/zod-to-openapi@8.4.0
+npm error Found: zod@3.25.76
+npm error node_modules/zod
+npm error   zod@&quot;^3.22.0&quot; from the root project
+npm error
+npm error Could not resolve dependency:
+npm error peer zod@&quot;^4.0.0&quot; from @asteasolutions/zod-to-openapi@8.4.0
+npm error node_modules/@asteasolutions/zod-to-openapi
+npm error   @asteasolutions/zod-to-openapi@&quot;^8.4.0&quot; from the root project
+npm error
+npm error Conflicting peer dependency: zod@4.3.6
+npm error node_modules/zod
+npm error   peer zod@&quot;^4.0.0&quot; from @asteasolutions/zod-to-openapi@8.4.0
+npm error   node_modules/@asteasolutions/zod-to-openapi
+npm error     @asteasolutions/zod-to-openapi@&quot;^8.4.0&quot; from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error /home/.npm/_logs/2026-02-15T04_31_41_973Z-eresolve-report.txt
+npm error A complete log of this run can be found in: /home/.npm/_logs/2026-02-15T04_31_41_973Z-debug-0.log
+/bin/bash -c &quot;oryx build /tmp/zipdeploy/extracted -o /home/site/wwwroot --platform nodejs --platform-version 22 -p virtualenv_name= --log-file /tmp/build-debug.log  -i /tmp/8de6c4b0cd5b016 -p compress_node_modules=tar-gz | tee /tmp/oryx-build.log ; exit $PIPESTATUS &quot;" stackTrace="   at Kudu.Core.Infrastructure.Executable.ExecuteInternal(ITracer tracer, Func`2 onWriteOutput, Func`2 onWriteError, CancellationToken token, Encoding encoding, String arguments, Object[] args) in /tmp/KuduLite/Kudu.Core/Infrastructure/Executable.cs:line 239
+   at Kudu.Core.Infrastructure.Executable.ExecuteWithProgressWriter(ILogger logger, ITracer tracer, CancellationToken token, String arguments, Object[] args) in /tmp/KuduLite/Kudu.Core/Infrastructure/Executable.cs:line 118
+   at Kudu.Core.Deployment.Generator.ExternalCommandBuilder.RunCommand(DeploymentContext context, String command, Boolean ignoreManifest, CancellationToken token, String message) in /tmp/KuduLite/Kudu.Core/Deployment/Generator/ExternalCommandBuilder.cs:line 135
+   at Kudu.Core.Deployment.Generator.OryxBuilder.RunBuildCommand(IOryxArguments args, DeploymentContext context, CancellationToken token) in /tmp/KuduLite/Kudu.Core/Deployment/Generator/OryxBuilder.cs:line 295
+   at Kudu.Core.Deployment.Generator.OryxBuilder.Build(DeploymentContext context, CancellationToken token) in /tmp/KuduLite/Kudu.Core/Deployment/Generator/OryxBuilder.cs:line 136
+   at Kudu.Core.Deployment.DeploymentManager.Build(ChangeSet changeSet, ITracer tracer, IDisposable deployStep, IRepository repository, DeploymentInfoBase deploymentInfo, DeploymentAnalytics deploymentAnalytics, Boolean fullBuildByDefault, CancellationToken cancellationToken) in /tmp/KuduLite/Kudu.Core/Deployment/DeploymentManager.cs:line 771
+   at Kudu.Core.Deployment.DeploymentManager.Build(ChangeSet changeSet, ITracer tracer, IDisposable deployStep, IRepository repository, DeploymentInfoBase deploymentInfo, DeploymentAnalytics deploymentAnalytics, Boolean fullBuildByDefault, CancellationToken cancellationToken) in /tmp/KuduLite/Kudu.Core/Deployment/DeploymentManager.cs:line 840
+   at Kudu.Core.Deployment.DeploymentManager.DeployAsync(IRepository repository, ChangeSet changeSet, String deployer, Boolean clean, DeploymentInfoBase deploymentInfo, Boolean needFileUpdate, Boolean fullBuildByDefault) in /tmp/KuduLite/Kudu.Core/Deployment/DeploymentManager.cs:line 266" /><!-- duration: 2ms -->
+        </step><!-- duration: 40754ms -->
+        <step title="Reloading status file with latest updates" date="2026-02-15T04:31:53.547" >
+          <step title="WebHooksManager.PublishEventAsync: PostDeployment" date="2026-02-15T04:31:53.549" /><!-- duration: 104ms -->
+        </step><!-- duration: 107ms -->
+        <step title="Error occurred" date="2026-02-15T04:31:53.657" type="error" text="npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: @asteasolutions/zod-to-openapi@8.4.0
+npm error Found: zod@3.25.76
+npm error node_modules/zod
+npm error   zod@&quot;^3.22.0&quot; from the root project
+npm error
+npm error Could not resolve dependency:
+npm error peer zod@&quot;^4.0.0&quot; from @asteasolutions/zod-to-openapi@8.4.0
+npm error node_modules/@asteasolutions/zod-to-openapi
+npm error   @asteasolutions/zod-to-openapi@&quot;^8.4.0&quot; from the root project
+npm error
+npm error Conflicting peer dependency: zod@4.3.6
+npm error node_modules/zod
+npm error   peer zod@&quot;^4.0.0&quot; from @asteasolutions/zod-to-openapi@8.4.0
+npm error   node_modules/@asteasolutions/zod-to-openapi
+npm error     @asteasolutions/zod-to-openapi@&quot;^8.4.0&quot; from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error /home/.npm/_logs/2026-02-15T04_31_41_973Z-eresolve-report.txt
+npm error A complete log of this run can be found in: /home/.npm/_logs/2026-02-15T04_31_41_973Z-debug-0.log
+/bin/bash -c &quot;oryx build /tmp/zipdeploy/extracted -o /home/site/wwwroot --platform nodejs --platform-version 22 -p virtualenv_name= --log-file /tmp/build-debug.log  -i /tmp/8de6c4b0cd5b016 -p compress_node_modules=tar-gz | tee /tmp/oryx-build.log ; exit $PIPESTATUS &quot;" stackTrace="   at Kudu.Core.Infrastructure.Executable.ExecuteInternal(ITracer tracer, Func`2 onWriteOutput, Func`2 onWriteError, CancellationToken token, Encoding encoding, String arguments, Object[] args) in /tmp/KuduLite/Kudu.Core/Infrastructure/Executable.cs:line 239
+   at Kudu.Core.Infrastructure.Executable.ExecuteWithProgressWriter(ILogger logger, ITracer tracer, CancellationToken token, String arguments, Object[] args) in /tmp/KuduLite/Kudu.Core/Infrastructure/Executable.cs:line 118
+   at Kudu.Core.Deployment.Generator.ExternalCommandBuilder.RunCommand(DeploymentContext context, String command, Boolean ignoreManifest, CancellationToken token, String message) in /tmp/KuduLite/Kudu.Core/Deployment/Generator/ExternalCommandBuilder.cs:line 135
+   at Kudu.Core.Deployment.Generator.OryxBuilder.RunBuildCommand(IOryxArguments args, DeploymentContext context, CancellationToken token) in /tmp/KuduLite/Kudu.Core/Deployment/Generator/OryxBuilder.cs:line 295
+   at Kudu.Core.Deployment.Generator.OryxBuilder.Build(DeploymentContext context, CancellationToken token) in /tmp/KuduLite/Kudu.Core/Deployment/Generator/OryxBuilder.cs:line 136
+   at Kudu.Core.Deployment.DeploymentManager.Build(ChangeSet changeSet, ITracer tracer, IDisposable deployStep, IRepository repository, DeploymentInfoBase deploymentInfo, DeploymentAnalytics deploymentAnalytics, Boolean fullBuildByDefault, CancellationToken cancellationToken) in /tmp/KuduLite/Kudu.Core/Deployment/DeploymentManager.cs:line 771
+   at Kudu.Core.Deployment.DeploymentManager.Build(ChangeSet changeSet, ITracer tracer, IDisposable deployStep, IRepository repository, DeploymentInfoBase deploymentInfo, DeploymentAnalytics deploymentAnalytics, Boolean fullBuildByDefault, CancellationToken cancellationToken) in /tmp/KuduLite/Kudu.Core/Deployment/DeploymentManager.cs:line 840
+   at Kudu.Core.Deployment.DeploymentManager.DeployAsync(IRepository repository, ChangeSet changeSet, String deployer, Boolean clean, DeploymentInfoBase deploymentInfo, Boolean needFileUpdate, Boolean fullBuildByDefault) in /tmp/KuduLite/Kudu.Core/Deployment/DeploymentManager.cs:line 266" /><!-- duration: 2ms -->
+        <step title="Marking deployment as failed and cleaning up the temp deployment" date="2026-02-15T04:31:53.722" /><!-- duration: 1ms -->
+      </step><!-- duration: 42727ms -->
+      <step title="Error occurred" date="2026-02-15T04:31:53.866" type="error" text="One or more errors occurred. (Deployment failed)" stackTrace="   at System.Threading.Tasks.Task.ThrowIfExceptional(Boolean includeTaskCanceledExceptions)
+   at System.Threading.Tasks.Task.Wait(Int32 millisecondsTimeout, CancellationToken cancellationToken)
+   at System.Threading.Tasks.Task.Wait()
+   at Kudu.Core.Deployment.FetchDeploymentManager.&lt;&gt;c__DisplayClass22_1.&lt;PerformBackgroundDeployment&gt;b__3() in /tmp/KuduLite/Kudu.Core/Deployment/FetchDeploymentManager.cs:line 414
+   at Kudu.Contracts.Infrastructure.LockExtensions.TryLockOperation(IOperationLock lockObj, Action operation, String operationName, TimeSpan timeout) in /tmp/KuduLite/Kudu.Contracts/Infrastructure/LockExtensions.cs:line 34
+   at Kudu.Contracts.Infrastructure.LockExtensions.LockOperation(IOperationLock lockObj, Action operation, String operationName, TimeSpan timeout) in /tmp/KuduLite/Kudu.Contracts/Infrastructure/LockExtensions.cs:line 46
+   at Kudu.Core.Deployment.FetchDeploymentManager.&lt;&gt;c__DisplayClass22_0.&lt;PerformBackgroundDeployment&gt;b__1() in /tmp/KuduLite/Kudu.Core/Deployment/FetchDeploymentManager.cs:line 393" innerText="Deployment failed" innerStackTrace="   at Kudu.Core.Deployment.DeploymentManager.DeployAsync(IRepository repository, ChangeSet changeSet, String deployer, Boolean clean, DeploymentInfoBase deploymentInfo, Boolean needFileUpdate, Boolean fullBuildByDefault) in /tmp/KuduLite/Kudu.Core/Deployment/DeploymentManager.cs:line 307
+   at Kudu.Core.Deployment.FetchDeploymentManager.PerformDeployment(DeploymentInfoBase deploymentInfo, IDisposable tempDeployment, ChangeSet tempChangeSet, DeployStatusApiResult updateStatusObj) in /tmp/KuduLite/Kudu.Core/Deployment/FetchDeploymentManager.cs:line 230" /><!-- duration: 1ms -->
+    </step><!-- duration: 42749ms -->

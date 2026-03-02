@@ -28,6 +28,16 @@ export class DocumentsService {
       expires: Date.now() + 24 * 60 * 60 * 1000,
     });
 
+    // Resolve cityId: prefer input, fall back to service instance's city
+    let cityId: string = input.cityId ?? '';
+    if (!cityId) {
+      const si = await this.prisma.serviceInstance.findUnique({
+        where: { id: input.serviceInstanceId },
+        select: { cityId: true },
+      });
+      cityId = si?.cityId ?? '';
+    }
+
     const document = await this.prisma.document.create({
       data: {
         serviceInstanceId: input.serviceInstanceId,
@@ -40,7 +50,7 @@ export class DocumentsService {
         signedUrl,
         signedUrlExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
         verificationStatus: input.uploadedBy === 'agent' ? 'verified' : 'pending',
-        cityId: input.cityId,
+        cityId,
         stakeholderId: input.stakeholderId,
         agentNotes: input.agentNotes,
         gpsLat: input.gpsLat,
@@ -48,32 +58,54 @@ export class DocumentsService {
       },
     });
 
+    // Background jobs — failures must not block the upload response, but each
+    // job is isolated so one failure doesn't prevent others from running.
+
     // Story 6.3: Queue AI verification job for customer uploads
     if (document.verificationStatus === 'pending') {
-      await this.boss.send(DOCUMENT_VERIFY_JOB, {
-        documentId: document.id,
-      }, {
-        retryLimit: 3,
-        retryDelay: 10,
-        retryBackoff: true,
-        expireInMinutes: 5,
-        priority: 1,
-      });
+      try {
+        await this.boss.send(DOCUMENT_VERIFY_JOB, {
+          documentId: document.id,
+          storagePath: input.storagePath,
+          expectedType: input.docType,
+          serviceInstanceId: input.serviceInstanceId,
+        }, {
+          retryLimit: 3,
+          retryDelay: 10,
+          retryBackoff: true,
+          expireInMinutes: 5,
+          priority: 1,
+        });
+      } catch (err) {
+        logger.error({ err, documentId: document.id }, 'ALERT: AI verification job failed to queue — document will remain unverified');
+      }
     }
 
     // Story 6.7: Notify customer on agent upload
     if (input.uploadedBy === 'agent') {
-      await this._notifyCustomerOnAgentUpload(input, document);
+      try {
+        await this._notifyCustomerOnAgentUpload(input, document);
+      } catch (err) {
+        logger.warn({ err, documentId: document.id }, 'Customer notification failed (non-fatal)');
+      }
     }
 
     // Story 6.9: Trigger WhatsApp delivery for critical documents
     if (input.uploadedBy === 'agent' && isCriticalDocument(input.docType)) {
-      await this._triggerWhatsAppDelivery(input, document);
+      try {
+        await this._triggerWhatsAppDelivery(input, document);
+      } catch (err) {
+        logger.warn({ err, documentId: document.id }, 'WhatsApp delivery failed (non-fatal)');
+      }
     }
 
     // Story 6.11b: Notify primary customer on stakeholder upload
     if (input.stakeholderId) {
-      await this._notifyPrimaryOnStakeholderUpload(input);
+      try {
+        await this._notifyPrimaryOnStakeholderUpload(input);
+      } catch (err) {
+        logger.warn({ err, documentId: document.id }, 'Stakeholder notification failed (non-fatal)');
+      }
     }
 
     return document;
@@ -428,20 +460,24 @@ export class DocumentsService {
     }
 
     const definition = serviceDefinition.definition as any;
-    const requiredDocuments: any[] =
+    const rawDocs: any[] =
+      definition?.requiredDocuments ??
       definition?.required_documents ??
       definition?.documents ??
       definition?.steps?.flatMap((s: any) => s.requiredDocuments ?? s.required_documents ?? []) ??
       [];
 
-    if (requiredDocuments.length === 0) {
+    if (rawDocs.length === 0) {
       return [
         { doc_type: 'identity_proof' },
         { doc_type: 'property_document' },
       ];
     }
 
-    return requiredDocuments;
+    // Normalise: seed data may store plain strings or objects with doc_type key
+    return rawDocs.map((item: any) =>
+      typeof item === 'string' ? { doc_type: item } : item,
+    );
   }
 
   private async _notifyCustomerOnAgentUpload(input: CreateDocumentInput, document: any) {

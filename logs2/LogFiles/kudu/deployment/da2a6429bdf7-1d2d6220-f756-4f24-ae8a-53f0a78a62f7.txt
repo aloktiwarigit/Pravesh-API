@@ -1,0 +1,33 @@
+2026-02-13T06:01:17  Fetching changes.
+2026-02-13T06:01:17    Starting  LocalZipHandler
+2026-02-13T06:01:17    Cleaning up temp folders from previous zip deployments and extracting pushed zip file /tmp/zipdeploy/a55f2c88-e6e9-470a-868c-b48d33782fed.zip (107.07 MB) to /tmp/zipdeploy/extracted
+2026-02-13T06:01:17    Exception in extracting and setting permissions on the zip file System.IO.Abstractions.FileInfoWrapper:System.IO.InvalidDataException: End of Central Directory record could not be found.
+   at System.IO.Compression.ZipArchive.ReadEndOfCentralDirectory()
+   at System.IO.Compression.ZipArchive..ctor(Stream stream, ZipArchiveMode mode, Boolean leaveOpen, Encoding entryNameEncoding)
+   at Kudu.Services.Deployment.PushDeploymentController.LocalZipFetch(IRepository repository, DeploymentInfoBase deploymentInfo, String targetBranch, ILogger logger, ITracer tracer) in /tmp/KuduLite/Kudu.Services/Deployment/PushDeploymentController.cs:line 1237
+2026-02-13T06:01:20  Updating submodules.
+2026-02-13T06:01:20  Preparing deployment for commit id '3a2e80f0-c'.
+2026-02-13T06:01:21  PreDeployment: context.CleanOutputPath False
+2026-02-13T06:01:21  PreDeployment: context.OutputPath /home/site/wwwroot
+2026-02-13T06:01:21  Running build. Project type: OneDeploy
+2026-02-13T06:01:21  Copying the manifest
+2026-02-13T06:01:21  Clean deploying to /home/site/wwwroot
+2026-02-13T06:01:22  Generating deployment script.
+2026-02-13T06:01:22  Running deployment command...
+2026-02-13T06:01:22    Command: /opt/Kudu/Scripts/parallel_rsync.sh /tmp/zipdeploy/extracted /home/site/wwwroot 8 /tmp/ True False  
+2026-02-13T06:01:22    Run rsync from: /tmp/zipdeploy/extracted/ to: /home/site/wwwroot/ in 8 parallel threads
+2026-02-13T06:01:22    Delete options: clean=True, use manifest=False, directory to ignore=
+2026-02-13T06:01:22    Prev manifest = /tmp/tmpVvyIgW.tmp and next /tmp/tmpVvyIgW.tmp
+2026-02-13T06:01:22    Cleaning up /tmp//filelist.txt and /tmp//splits
+2026-02-13T06:01:22    Creating a list of all files at /tmp//filelist.txt
+2026-02-13T06:01:22    No directory to exclude.
+2026-02-13T06:01:22    Created /tmp//filelist.txt. Total number of files to be synced = 0.
+2026-02-13T06:01:22    Created batches from the list of files. Processing 1 files in each thread
+2026-02-13T06:01:22    Deleting files not present in /tmp/zipdeploy/extracted/ from /home/site/wwwroot/
+2026-02-13T06:01:22    ls: cannot access '/tmp//splits/split.*': No such file or directory
+2026-02-13T06:04:33    Number of files deleted: 27695. See /tmp//rsync_deletion_logs.txt for more details.
+2026-02-13T06:04:33    Completed successfully in 190 seconds
+2026-02-13T06:04:34  Build completed succesfully.
+2026-02-13T06:04:35  Running post deployment command(s)...
+2026-02-13T06:04:35  Triggering container recycle for OneDeploy by adding/updating restartTrigger.txt to the site root path
+2026-02-13T06:04:35  Deployment successful. deployer = OneDeploy deploymentPath = OneDeploy

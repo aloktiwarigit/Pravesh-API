@@ -1,0 +1,39 @@
+<step title="BackgroundTrace" date="2026-02-22T19:37:05.024" instance="b2fccf" url="/api/publish" method="POST" >
+  <step title="Creating temporary deployment - FetchDeploymentManager" date="2026-02-22T19:37:05.296" /><!-- duration: 3ms -->
+  <step title="Creating temporary deployment" date="2026-02-22T19:37:05.304" /><!-- duration: 121ms -->
+  <step title="Performing fetch based deployment" date="2026-02-22T19:37:05.524" >
+    <step title="Cleaning up temp folders from previous zip deployments and extracting pushed zip file /tmp/zipdeploy/30f929bf-5ae1-43bd-9c52-fe268492060d.zip (1.13 MB) to /tmp/zipdeploy/extracted" date="2026-02-22T19:37:06.702" >
+      <step title="ChmodRecursive Process exited with total time taken in ms: 178" date="2026-02-22T19:37:08.062" /><!-- duration: 2ms -->
+    </step><!-- duration: 1377ms -->
+    <step title="Deployment timer started" date="2026-02-22T19:37:10.108" >
+      <step title="DeploymentManager.Deploy(id:ad6cd317-0df4-4b3e-a242-d1d6370c0f19)" date="2026-02-22T19:37:10.118" >
+        <step title="Collecting changeset information" date="2026-02-22T19:37:10.161" /><!-- duration: 169ms -->
+        <step title="Updating submodules" date="2026-02-22T19:37:10.349" /><!-- duration: 1360ms -->
+        <step title="Determining deployment builder" date="2026-02-22T19:37:12.138" >
+          <step title="Builder is CustomBuilder" date="2026-02-22T19:37:12.149" /><!-- duration: 1ms -->
+        </step><!-- duration: 19ms -->
+        <step title="PreDeployment: context.CleanOutputPath False" date="2026-02-22T19:37:12.210" >
+          <step title="PreDeployment: context.OutputPath /home/site/wwwroot" date="2026-02-22T19:37:12.450" >
+            <step title="Building" date="2026-02-22T19:37:14.135" >
+              <step title="Executing external process" date="2026-02-22T19:37:15.366" type="process" path="starter.sh" arguments="bash -c &quot;npm install --production &amp;&amp; npx prisma generate&quot;" >
+                <step title="Cpu: npm install(926,69.960s)+bash(924,0.010s)=total(69.960s)" date="2026-02-22T19:39:54.679" /><!-- duration: 10ms -->
+                <step title="starter.sh: no io activity for 60s, prev-cpu=-1.000s, current-cpu=69.960s" date="2026-02-22T19:39:54.729" /><!-- duration: 8ms -->
+                <step title="Cpu: npm install(926,73.640s)+bash(924,0.010s)=total(73.640s)" date="2026-02-22T19:40:55.262" /><!-- duration: 19ms -->
+                <step title="starter.sh: no io activity for 121s, prev-cpu=69.960s, current-cpu=73.640s" date="2026-02-22T19:40:55.302" /><!-- duration: 8ms -->
+              </step><!-- duration: 284260ms -->
+              <step title="Modified file to trigger a restart of the app container." date="2026-02-22T19:42:00.379" /><!-- duration: 1ms -->
+              <step title="Skip function trigger and logicapp sync because function is not enabled." date="2026-02-22T19:42:00.403" /><!-- duration: 10ms -->
+              <step title="Purge deployment items" date="2026-02-22T19:42:02.130" >
+                <step title="Remove aa7e744e-, Failed, received at 02/22/2026 18:25:20" date="2026-02-22T19:42:02.285" /><!-- duration: 11ms -->
+                <step title="Remove 16637911-, Success, received at 02/15/2026 04:45:39" date="2026-02-22T19:42:02.504" /><!-- duration: 31ms -->
+              </step><!-- duration: 425ms -->
+            </step><!-- duration: 288619ms -->
+          </step><!-- duration: 290314ms -->
+          <step title="Cleaning up temp files" date="2026-02-22T19:42:02.774" /><!-- duration: 80ms -->
+          <step title="Cleaning up temp files" date="2026-02-22T19:42:02.884" /><!-- duration: 569ms -->
+          <step title="Reloading status file with latest updates" date="2026-02-22T19:42:03.532" >
+            <step title="WebHooksManager.PublishEventAsync: PostDeployment" date="2026-02-22T19:42:03.564" /><!-- duration: 442ms -->
+          </step><!-- duration: 493ms -->
+          <step title="Cleaning up temporary deployment - fetch deployment was successful" date="2026-02-22T19:42:04.054" /><!-- duration: 10ms -->
+        </step><!-- duration: 291967ms -->
+      </step><!-- duration: 294128ms -->

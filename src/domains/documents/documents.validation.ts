@@ -9,10 +9,13 @@ export const createDocumentSchema = z.object({
     .refine((val) => !val.includes('..'), { message: 'Path must not contain ".."' })
     .refine((val) => !val.startsWith('/'), { message: 'Path must not start with "/"' })
     .refine(
-      (val) => /^documents\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/[a-z_]+\/[0-9a-f-]{36}\.\w+$/.test(val),
-      { message: 'Path must match pattern: documents/{uuid}/{uuid}/{type}/{uuid}.{ext}' },
+      (val) => /^documents\/[\w-]{1,128}\/[\w-]{1,128}\/[\w]{1,100}\/[\w-]{1,128}\.\w{1,10}$/.test(val),
+      { message: 'Path must match: documents/{id}/{id}/{type}/{file}.{ext}' },
     ),
-  download_url: z.string().url(),
+  download_url: z.string().url().refine(
+    (val) => val.startsWith('https://firebasestorage.googleapis.com/') || val.startsWith('https://storage.googleapis.com/'),
+    { message: 'Download URL must be a Firebase Storage URL' },
+  ),
   file_size: z.number().int().positive().max(10 * 1024 * 1024), // max 10MB
   uploaded_by: z.enum(['customer', 'agent']),
   stakeholder_id: z.string().uuid().optional(),

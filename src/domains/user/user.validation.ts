@@ -4,8 +4,14 @@ import { z } from 'zod';
 // User Profile Update Validation
 // ============================================================
 
+// Name must contain only letters, spaces, hyphens, apostrophes, and dots
+const nameSchema = z.string().min(2, 'Name must be at least 2 characters').max(100).regex(
+  /^[a-zA-Z\s'\-\.]+$/,
+  'Name can only contain letters, spaces, hyphens, apostrophes, and dots',
+);
+
 export const updateProfileSchema = z.object({
-  displayName: z.string().min(1).max(100).optional(),
+  displayName: nameSchema.optional(),
   email: z.string().email().optional(),
   languagePref: z.enum(['en', 'hi']).optional(),
   profileData: z.record(z.unknown()).optional(),
@@ -19,8 +25,8 @@ export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 // ============================================================
 
 export const patchProfileSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  displayName: z.string().min(1).max(100).optional(),
+  name: nameSchema.optional(),
+  displayName: nameSchema.optional(),
   email: z.string().email().optional(),
   preferredLanguage: z.enum(['en', 'hi']).optional(),
   languagePref: z.enum(['en', 'hi']).optional(),

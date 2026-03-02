@@ -1,0 +1,5 @@
+2026-02-15T04:02:27  Startup Request, url: /logstream, method: GET, type: request, pid: 833,1,15, SCM_DO_BUILD_DURING_DEPLOYMENT: true, ScmType: None
+2026-02-15T06:02:28    Error occurred, type: error, text: LogStreamManager: Inside TerminateClient
+2026-02-15T06:02:28    Error occurred, type: error, text: LogStreamManager: Inside Reset
+2026-02-15T07:39:30    Error occurred, type: error, text: LogStreamManager: ProcessRequest end due to timeout
+2026-02-15T07:39:30  Error occurred, type: error, text: LogStreamManager: Inside Reset

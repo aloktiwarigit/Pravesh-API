@@ -1,0 +1,133 @@
+2026-02-04T19:08:39  Fetching changes.
+2026-02-04T19:08:39    Starting  LocalZipHandler
+2026-02-04T19:08:39    Cleaning up temp folders from previous zip deployments and extracting pushed zip file /tmp/zipdeploy/2e3eb1b8-bcae-4e52-9298-61cc65e97290.zip (0.95 MB) to /tmp/zipdeploy/extracted
+2026-02-04T19:08:44  Updating submodules.
+2026-02-04T19:08:44  Preparing deployment for commit id 'c10e68e9-a'.
+2026-02-04T19:08:44  PreDeployment: context.CleanOutputPath False
+2026-02-04T19:08:45  PreDeployment: context.OutputPath /home/site/wwwroot
+2026-02-04T19:08:45  Repository path is /tmp/zipdeploy/extracted
+2026-02-04T19:08:45  Running oryx build...
+2026-02-04T19:08:45    Command: oryx build /tmp/zipdeploy/extracted -o /home/site/wwwroot --platform nodejs --platform-version 22 -p virtualenv_name= --log-file /tmp/build-debug.log  -i /tmp/8de6420d146aae6 -p compress_node_modules=tar-gz | tee /tmp/oryx-build.log
+2026-02-04T19:08:46    Operation performed by Microsoft Oryx, https://github.com/Microsoft/Oryx
+2026-02-04T19:08:46    You can report issues at https://github.com/Microsoft/Oryx/issues
+2026-02-04T19:08:46    
+2026-02-04T19:08:46    Oryx Version: 0.2.20251022.1+bef98bc7139feefaa74be16de9d835e2c85385d4, Commit: bef98bc7139feefaa74be16de9d835e2c85385d4, ReleaseTagName: 20251022.1
+2026-02-04T19:08:46    
+2026-02-04T19:08:46    Build Operation ID: 4728ff3378bb5a27
+2026-02-04T19:08:46    Repository Commit : c10e68e9-a0d9-45c1-af4c-5649cca4e2b3
+2026-02-04T19:08:46    OS Type           : bookworm
+2026-02-04T19:08:46    Image Type        : githubactions
+2026-02-04T19:08:46    
+2026-02-04T19:08:46    Primary SDK Storage URL: https://oryx-cdn.microsoft.io
+2026-02-04T19:08:46    Backup SDK Storage URL: 
+2026-02-04T19:08:46    Detecting platforms...
+2026-02-04T19:08:46    External SDK provider is enabled.
+2026-02-04T19:08:46    Requesting metadata for platform nodejs from external SDK provider
+2026-02-04T19:08:49    Requesting metadata for platform nodejs from external SDK provider
+2026-02-04T19:08:50    Successfully requested blob for platform nodejs, blobName defaultVersion.bookworm.txt, available at /var/OryxSdks/nodejs/defaultVersion.bookworm.txt
+2026-02-04T19:08:50    Detected following platforms:
+2026-02-04T19:08:50      nodejs: 22.22.0
+2026-02-04T19:08:50    Requesting metadata for platform nodejs from external SDK provider
+2026-02-04T19:08:52    Successfully requested blob for platform nodejs, blobName nodejs-bookworm-22.22.0.tar.gz, available at /var/OryxSdks/nodejs/nodejs-bookworm-22.22.0.tar.gz
+2026-02-04T19:08:52    Version '22.22.0' of platform 'nodejs' is not installed. Generating script to install it...
+2026-02-04T19:08:52    Detected the following frameworks: Typescript,Express
+2026-02-04T19:08:53    
+2026-02-04T19:08:53    Using intermediate directory '/tmp/8de6420d146aae6'.
+2026-02-04T19:08:53    
+2026-02-04T19:08:53    Copying files to the intermediate directory...
+2026-02-04T19:08:54    Done in 1 sec(s).
+2026-02-04T19:08:54    
+2026-02-04T19:08:54    Source directory     : /tmp/8de6420d146aae6
+2026-02-04T19:08:54    Destination directory: /home/site/wwwroot
+2026-02-04T19:08:54    
+2026-02-04T19:08:54    
+2026-02-04T19:08:54    Downloading and extracting 'nodejs' version '22.22.0' to '/tmp/oryx/platforms/nodejs/22.22.0'...
+2026-02-04T19:08:54    Detected image debian flavor: bookworm.
+2026-02-04T19:08:54    Skipping download of nodejs version 22.22.0 as it is available in external sdk provider cache...
+2026-02-04T19:08:54    Extracting contents...
+2026-02-04T19:08:57    Successfully extracted nodejs version 22.22.0 from external sdk provider cache...
+2026-02-04T19:08:57    Done in 3 sec(s).
+2026-02-04T19:08:57    
+2026-02-04T19:08:58    Removing existing manifest file
+2026-02-04T19:08:58    Creating directory for command manifest file if it does not exist
+2026-02-04T19:08:58    Creating a manifest file...
+2026-02-04T19:08:58    Node Build Command Manifest file created.
+2026-02-04T19:08:58    
+2026-02-04T19:08:58    Using Node version:
+2026-02-04T19:08:58    v22.22.0
+2026-02-04T19:08:58    
+2026-02-04T19:08:58    Using Npm version:
+2026-02-04T19:08:58    10.9.4
+2026-02-04T19:08:58    
+2026-02-04T19:08:58    Running 'npm install'...
+2026-02-04T19:08:58    
+2026-02-04T19:09:05    npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2026-02-04T19:09:05    npm warn deprecated lodash.get@4.4.2: This package is deprecated. Use the optional chaining (?.) operator instead.
+2026-02-04T19:09:06    npm warn deprecated rimraf@2.7.1: Rimraf versions prior to v4 are no longer supported
+2026-02-04T19:09:06    npm warn deprecated supertest@6.3.4: Please upgrade to supertest v7.1.3+, see release notes at https://github.com/forwardemail/supertest/releases/tag/v7.1.3 - maintenance is supported by Forward Email @ https://forwardemail.net
+2026-02-04T19:09:06    npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+2026-02-04T19:09:06    npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+2026-02-04T19:09:08    npm warn deprecated fstream@1.0.12: This package is no longer supported.
+2026-02-04T19:09:08    npm warn deprecated superagent@8.1.2: Please upgrade to superagent v10.2.2+, see release notes at https://github.com/forwardemail/superagent/releases/tag/v10.2.2 - maintenance is supported by Forward Email @ https://forwardemail.net
+2026-02-04T19:09:32    
+2026-02-04T19:09:32    > property-legal-agent-api@1.0.0 postinstall
+2026-02-04T19:09:32    > prisma generate
+2026-02-04T19:09:32    
+2026-02-04T19:09:33    Prisma schema loaded from prisma/schema.prisma
+2026-02-04T19:09:38    
+2026-02-04T19:09:39    ✔ Generated Prisma Client (v5.22.0) to ./node_modules/@prisma/client in 3.41s
+2026-02-04T19:09:39    
+2026-02-04T19:09:39    Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+2026-02-04T19:09:39    
+2026-02-04T19:09:39    Tip: Easily identify and fix slow SQL queries in your app. Optimize helps you enhance your visibility: https://pris.ly/--optimize
+2026-02-04T19:09:39    
+2026-02-04T19:09:39    
+2026-02-04T19:09:39    added 570 packages, and audited 571 packages in 41s
+2026-02-04T19:09:39    
+2026-02-04T19:09:39    106 packages are looking for funding
+2026-02-04T19:09:39      run `npm fund` for details
+2026-02-04T19:09:39    
+2026-02-04T19:09:40    6 vulnerabilities (4 moderate, 2 high)
+2026-02-04T19:09:40    
+2026-02-04T19:09:40    To address issues that do not require attention, run:
+2026-02-04T19:09:40      npm audit fix
+2026-02-04T19:09:40    
+2026-02-04T19:09:40    To address all issues (including breaking changes), run:
+2026-02-04T19:09:40      npm audit fix --force
+2026-02-04T19:09:40    
+2026-02-04T19:09:40    Run `npm audit` for details.
+2026-02-04T19:09:40    
+2026-02-04T19:09:40    Running 'npm run build'...
+2026-02-04T19:09:40    
+2026-02-04T19:09:40    
+2026-02-04T19:09:40    > property-legal-agent-api@1.0.0 build
+2026-02-04T19:09:40    > test -d dist && echo 'dist exists, skipping build' || tsc
+2026-02-04T19:09:40    
+2026-02-04T19:09:41    dist exists, skipping build
+2026-02-04T19:09:41    
+2026-02-04T19:09:41    Zipping existing node_modules folder...
+2026-02-04T19:10:11    Done in 30 sec(s).
+2026-02-04T19:10:11    Preparing output...
+2026-02-04T19:10:11    
+2026-02-04T19:10:11    Copying files to destination directory '/home/site/wwwroot'...
+2026-02-04T19:10:19    Done in 8 sec(s).
+2026-02-04T19:10:19    
+2026-02-04T19:10:19    Removing existing manifest file
+2026-02-04T19:10:19    Creating a manifest file...
+2026-02-04T19:10:19    Manifest file created.
+2026-02-04T19:10:19    Copying .ostype to manifest output directory.
+2026-02-04T19:10:19    
+2026-02-04T19:10:19    Done in 86 sec(s).
+2026-02-04T19:10:20  Running post deployment command(s)...
+2026-02-04T19:10:20  
+2026-02-04T19:10:20  Generating summary of Oryx build
+2026-02-04T19:10:20  Parsing the build logs
+2026-02-04T19:10:21  Found 0 issue(s)
+2026-02-04T19:10:21  
+2026-02-04T19:10:21  Build Summary :
+2026-02-04T19:10:21  ===============
+2026-02-04T19:10:21  Errors (0)
+2026-02-04T19:10:21  Warnings (0)
+2026-02-04T19:10:22  
+2026-02-04T19:10:22  Triggering container recycle for OneDeploy by adding/updating restartTrigger.txt to the site root path
+2026-02-04T19:10:22  Deployment successful. deployer = OneDeploy deploymentPath = OneDeploy

@@ -1,0 +1,38 @@
+<step title="BackgroundTrace" date="2026-02-14T04:23:41.164" instance="cbe9e9" url="/api/zipdeploy" method="POST" >
+  <step title="Creating temporary deployment - FetchDeploymentManager" date="2026-02-14T04:23:41.296" /><!-- duration: 5ms -->
+  <step title="Creating temporary deployment" date="2026-02-14T04:23:41.311" /><!-- duration: 83ms -->
+  <step title="Performing fetch based deployment" date="2026-02-14T04:23:41.464" >
+    <step title="Cleaning up temp folders from previous zip deployments and extracting pushed zip file /tmp/zipdeploy/ed4e2971-f0d8-4d6d-a3c3-6d71fdca4d63.zip (1.07 MB) to /tmp/zipdeploy/extracted" date="2026-02-14T04:23:42.818" >
+      <step title="ChmodRecursive Process exited with total time taken in ms: 161" date="2026-02-14T04:23:44.573" /><!-- duration: 7ms -->
+    </step><!-- duration: 1767ms -->
+    <step title="Deployment timer started" date="2026-02-14T04:23:46.650" >
+      <step title="DeploymentManager.Deploy(id:7338e8c7-69f9-423f-b57d-5338a53cb416)" date="2026-02-14T04:23:46.663" >
+        <step title="Collecting changeset information" date="2026-02-14T04:23:46.695" /><!-- duration: 95ms -->
+        <step title="Updating submodules" date="2026-02-14T04:23:46.801" /><!-- duration: 1150ms -->
+        <step title="Determining deployment builder" date="2026-02-14T04:23:48.221" >
+          <step title="Builder is OryxBuilder" date="2026-02-14T04:23:48.234" /><!-- duration: 6ms -->
+        </step><!-- duration: 26ms -->
+        <step title="PreDeployment: context.CleanOutputPath False" date="2026-02-14T04:23:48.341" >
+          <step title="PreDeployment: context.OutputPath /home/site/wwwroot" date="2026-02-14T04:23:48.533" >
+            <step title="Building" date="2026-02-14T04:23:48.739" >
+              <step title="Executing external process" date="2026-02-14T04:23:49.120" type="process" path="bash" arguments="-c &quot;oryx build /tmp/zipdeploy/extracted -o /home/site/wwwroot --platform nodejs --platform-version 22 -p virtualenv_name= --log-file /tmp/build-debug.log  -i /tmp/8de6b80d9848540 -p compress_node_modules=tar-gz | tee /tmp/oryx-build.log ; exit $PIPESTATUS &quot;" >
+                <step title="Cpu: node(2673,3.080s)+node(2659,4.740s)+node(2648,0.080s)+sh(2647,0.010s)+npm install(2619,12.480s)+build.sh(2535,0.020s)+oryx(2512,3.870s)+tee(2513,0.000s)+bash(2511,0.000s)=total(24.280s)" date="2026-02-14T04:25:21.614" /><!-- duration: 10ms -->
+                <step title="bash: no io activity for 60s, prev-cpu=-1.000s, current-cpu=24.280s" date="2026-02-14T04:25:21.632" /><!-- duration: 17ms -->
+              </step><!-- duration: 158691ms -->
+              <step title="Using GenericDeploymentLogParser" date="2026-02-14T04:26:28.296" /><!-- duration: 15ms -->
+              <step title="Triggering recycle (preview mode disabled)." date="2026-02-14T04:26:29.885" /><!-- duration: 8ms -->
+              <step title="Modified file to trigger a restart of the app container." date="2026-02-14T04:26:29.928" /><!-- duration: 6ms -->
+              <step title="Skip function trigger and logicapp sync because function is not enabled." date="2026-02-14T04:26:29.947" /><!-- duration: 6ms -->
+              <step title="Purge deployment items" date="2026-02-14T04:26:31.626" >
+                <step title="Remove 5b314ab1-, Success, received at 02/13/2026 04:09:23" date="2026-02-14T04:26:31.750" /><!-- duration: 5ms -->
+              </step><!-- duration: 135ms -->
+            </step><!-- duration: 163113ms -->
+          </step><!-- duration: 163327ms -->
+          <step title="Cleaning up temp files" date="2026-02-14T04:26:31.866" /><!-- duration: 902ms -->
+          <step title="Cleaning up temp files" date="2026-02-14T04:26:32.777" /><!-- duration: 510ms -->
+          <step title="Reloading status file with latest updates" date="2026-02-14T04:26:33.341" >
+            <step title="WebHooksManager.PublishEventAsync: PostDeployment" date="2026-02-14T04:26:33.348" /><!-- duration: 39ms -->
+          </step><!-- duration: 50ms -->
+          <step title="Cleaning up temporary deployment - fetch deployment was successful" date="2026-02-14T04:26:33.399" /><!-- duration: 9ms -->
+        </step><!-- duration: 165178ms -->
+      </step><!-- duration: 166883ms -->

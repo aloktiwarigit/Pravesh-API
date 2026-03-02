@@ -83,6 +83,20 @@ export function createUserController(prisma: PrismaClient): Router {
   });
 
   // ==========================================================
+  // DELETE /me — Delete own account (Play Store requirement)
+  // ==========================================================
+
+  router.delete('/me', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const firebaseUid = (req as any).user?.id;
+      const result = await userService.deleteAccount(firebaseUid);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ==========================================================
   // GET /search — Admin: search / list users with filters
   // ==========================================================
 

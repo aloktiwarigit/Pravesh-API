@@ -1,0 +1,5 @@
+<step title="Startup Request" date="2026-02-22T23:25:49.483" instance="b2fccf" url="/api/publish?type=zip&amp;async=True" method="POST" type="request" pid="833,1,16" SCM_DO_BUILD_DURING_DEPLOYMENT="false" ScmType="None" >
+  <step title="Cleanup Xml Logs" date="2026-02-22T23:25:49.491" >
+    <step title="Cleanup Infos" date="2026-02-22T23:25:49.511" totalFiles="673" totalCleanup="513" /><!-- duration: 3ms -->
+  </step><!-- duration: 32ms -->
+</step><!-- duration: 41ms -->

@@ -1,0 +1,7 @@
+<step title="Incoming Request" date="2026-02-03T03:13:52.653" instance="9be4b8" url="/deployments/bc288e23-eb1a-4fd4-9e7a-3ef68353cf53/log" method="GET" type="request" pid="831,1,23" Accept="*/*" Host="pla-api-server.scm.azurewebsites.net" User-Agent="python/3.13.9 (Windows-11-10.0.22631-SP0) AZURECLI/2.80.0 (MSI)" Accept-Encoding="gzip, deflate" Authorization="Bea..." x-ms-client-request-id="3cca16e1-bb53-4e91-84a5-b0d7e35ef30e" CommandName="rest" ParameterSetName="--method --url --resource" X-ARR-LOG-ID="3cca16e1-bb53-4e91-84a5-b0d7e35ef30e" CLIENT-IP="104.246.25.113:51383" X-SITE-DEPLOYMENT-ID="pla-api-server" WAS-DEFAULT-HOSTNAME="pla-api-server.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/deployments/bc288e23-eb1a-4fd4-9e7a-3ef68353cf53/log" X-Client-IP="104.246.25.113" X-Client-Port="51383" >
+  <step title="Cleanup Xml Logs" date="2026-02-03T03:13:52.658" /><!-- duration: 10ms -->
+  <step title="DeploymentService.GetLogEntry" date="2026-02-03T03:13:52.686" >
+    <step title="DeploymentManager.GetLogEntries(id:bc288e23-eb1a-4fd4-9e7a-3ef68353cf53)" date="2026-02-03T03:13:52.693" /><!-- duration: 18ms -->
+  </step><!-- duration: 29ms -->
+  <step title="Outgoing response" date="2026-02-03T03:13:52.730" type="response" statusCode="200" statusText="OK" /><!-- duration: 6ms -->
+</step><!-- duration: 87ms -->

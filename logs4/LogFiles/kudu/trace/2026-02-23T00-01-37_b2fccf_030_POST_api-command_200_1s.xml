@@ -1,0 +1,7 @@
+<step title="Incoming Request" date="2026-02-23T00:01:37.672" instance="b2fccf" url="/api/command" method="POST" type="request" pid="831,1,23" Accept="*/*" Host="pla-api-server.scm.azurewebsites.net" User-Agent="curl/8.18.0" Authorization="Bea..." Content-Type="application/json" Content-Length="54" X-ARR-LOG-ID="0ecda532-f85e-4c8e-9d6b-17256976f1f3" CLIENT-IP="104.246.25.113:50748" X-SITE-DEPLOYMENT-ID="pla-api-server" WAS-DEFAULT-HOSTNAME="pla-api-server.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/command" X-Client-IP="104.246.25.113" X-Client-Port="50748" >
+  <step title="Cleanup Xml Logs" date="2026-02-23T00:01:37.681" >
+    <step title="Cleanup Infos" date="2026-02-23T00:01:37.712" totalFiles="718" totalCleanup="558" /><!-- duration: 20ms -->
+  </step><!-- duration: 60ms -->
+  <step title="Executing user command. " date="2026-02-23T00:01:37.826" CWD="/home" /><!-- duration: 357ms -->
+  <step title="Outgoing response" date="2026-02-23T00:01:38.193" type="response" statusCode="200" statusText="OK" /><!-- duration: 9ms -->
+</step><!-- duration: 532ms -->
